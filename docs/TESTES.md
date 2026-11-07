@@ -43,7 +43,9 @@ A interface foi verificada a 400px, com títulos longos e histórico rolável se
 
 ## Windows e instalador
 
-O workflow [Build Windows installer](https://github.com/GabrielSQQ/Musicytextens-o/actions/workflows/windows-build.yml) compila o host e o Setup no Windows, converte uma amostra real para MP3, instala o Setup em diretório de teste e verifica o host instalado, migração e preferências. O resultado dessa execução será incluído na publicação da versão.
+O workflow [Build Windows installer](https://github.com/GabrielSQQ/Musicytextens-o/actions/workflows/windows-build.yml) compila o host e o Setup no Windows, converte uma amostra real para MP3, instala o Setup em diretório de teste e verifica o host instalado, migração e preferências. A [execução 42320573847](https://github.com/GabrielSQQ/Musicytextens-o/actions/runs/42320573847) terminou com sucesso no runner Windows Server 2022. O Setup real foi instalado, as ferramentas foram adquiridas/verificadas automaticamente e o host instalado passou em conversão MP3, protocolo2, API Windows de Músicas, pasta com acentos, persistência de MP3/MP4 e migração sem excluir a mídia anterior.
+
+Evidências: [host instalado](evidencias/windows-install.json), [self-test do executável](evidencias/windows-build-self-test.json) e [proveniência/hash do instalador](evidencias/windows-build-provenance.json). O instalador foi compilado no commit `24faeea6bbe92521f5d6a54edabcf0c258569f70`; commits posteriores de documentação/ZIPs mantêm o mesmo código de execução. As conversões MP4 e o clique no navegador foram testados no Linux; a interface do Opera GX não foi executada no runner Windows.
 
 Permanecem dependentes de aceitação no computador da usuária: interação visual com o diálogo nativo no Opera GX, integração com o YouTube real, notificações visíveis do Windows e ausência visual de console na versão específica do Opera GX. O build usa execução oculta e não exige terminal da usuária.
 

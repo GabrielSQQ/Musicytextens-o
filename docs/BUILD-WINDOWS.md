@@ -114,3 +114,7 @@ genéricos equivalem a um pacote completo de fontes correspondentes GPL. Quem
 alterar o build para agregar esses binários precisará cumprir as obrigações de
 redistribuição dos componentes, incluindo fornecer fontes correspondentes quando
 exigido. As licenças Python/Tcl/Tk/PyInstaller do payload são incluídas no Setup.
+
+## Build publicado da versão 1.1.0
+
+A [execução 42320573847](https://github.com/GabrielSQQ/Musicytextens-o/actions/runs/42320573847) concluiu compilação, instalação real e testes do host Windows com sucesso no commit `24faeea6bbe92521f5d6a54edabcf0c258569f70`. [Instalador para download](https://github.com/GabrielSQQ/Musicytextens-o/releases/download/v1.1.0/OperaMusicDownloader-Setup.exe). Consulte [TESTES.md](TESTES.md) para evidências e limitações de aceitação visual.

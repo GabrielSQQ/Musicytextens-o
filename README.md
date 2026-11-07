@@ -4,12 +4,13 @@ Extensão para Opera GX com download de um clique no YouTube e no YouTube Music,
 
 ## Downloads
 
+- [Baixar instalador Windows 1.1.0 (EXE)](https://github.com/GabrielSQQ/Musicytextens-o/releases/download/v1.1.0/OperaMusicDownloader-Setup.exe).
 - [Baixar extensão atualizada (ZIP)](https://github.com/GabrielSQQ/Musicytextens-o/raw/refs/heads/main/downloads/OperaMusicDownloader-Extensao.zip).
 - [Baixar código-fonte completo (ZIP)](https://github.com/GabrielSQQ/Musicytextens-o/raw/refs/heads/main/downloads/OperaMusicDownloader-Fonte.zip).
 - [Versões e instalador Windows](https://github.com/GabrielSQQ/Musicytextens-o/releases).
-- [SHA256 dos ZIPs](downloads/SHA256SUMS.txt).
+- [SHA256 dos ZIPs e instalador](downloads/SHA256SUMS.txt).
 
-O auxiliar também precisa da versão 1.1.0 para o fluxo de um clique. A extensão reconhece um auxiliar antigo e solicita atualização, evitando que ele abra a antiga janela de seleção a cada download. O workflow Windows foi preservado; o estado efetivo da compilação está no [relatório de testes](docs/TESTES.md).
+O auxiliar também precisa da versão 1.1.0 para o fluxo de um clique. A extensão reconhece um auxiliar antigo e solicita atualização, evitando que ele abra a antiga janela de seleção a cada download. O instalador foi compilado e instalado com sucesso pelo workflow Windows, incluindo conversão real MP3 e verificação de persistência/migração. As evidências e limites estão no [relatório de testes](docs/TESTES.md).
 
 ## Atualizar a instalação que já funciona
 

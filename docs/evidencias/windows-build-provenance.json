@@ -1,0 +1,18 @@
+{
+  "version": "1.1.0",
+  "workflowRun": "https://github.com/GabrielSQQ/Musicytextens-o/actions/runs/42320573847",
+  "conclusion": "success",
+  "buildCommit": "24faeea6bbe92521f5d6a54edabcf0c258569f70",
+  "platform": "GitHub Actions windows-2022",
+  "installer": "OperaMusicDownloader-Setup.exe",
+  "installerBytes": 10558250,
+  "installerSha256": "87829ca7b91c18b00bdc8ae7a893dc8a2fced04529004506cc90a4d778f04ac5",
+  "realSetupInstalled": true,
+  "realMp3Conversion": true,
+  "realWindowsNativeMessaging": true,
+  "realWindowsKnownFolderMusic": true,
+  "nativeSettingsPersisted": true,
+  "legacyFolderAndMediaPreserved": true,
+  "operaGxVisualTested": false,
+  "liveYouTubeTested": false
+}

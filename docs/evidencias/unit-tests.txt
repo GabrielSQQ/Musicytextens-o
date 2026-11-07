@@ -10,6 +10,8 @@ test_extension_id_matches_manifest_public_key (test_build.DependencyBuildTests.t
 test_extracts_only_known_tools_and_license (test_build.DependencyBuildTests.test_extracts_only_known_tools_and_license) ... ok
 test_lock_uses_immutable_version_urls_and_hashes (test_build.DependencyBuildTests.test_lock_uses_immutable_version_urls_and_hashes) ... ok
 test_offline_bootstrap_refuses_missing_or_changed_bytes_without_network (test_build.DependencyBuildTests.test_offline_bootstrap_refuses_missing_or_changed_bytes_without_network) ... ok
+test_partial_final_copy_has_cleanup_record_and_preserves_media (test_build.DependencyBuildTests.test_partial_final_copy_has_cleanup_record_and_preserves_media) ... Verificando fixture 1...
+ok
 test_uninstaller_does_not_recursively_delete_preferences_folder (test_build.DependencyBuildTests.test_uninstaller_does_not_recursively_delete_preferences_folder) ... ok
 test_url_source_restricted (test_build.DependencyBuildTests.test_url_source_restricted) ... ok
 test_zip_traversal_is_rejected (test_build.DependencyBuildTests.test_zip_traversal_is_rejected) ... ok
@@ -48,7 +50,7 @@ test_safe_unicode_reserved_and_long_filenames (test_native.ValidationTests.test_
 test_browser_closes_before_native_picker_returns (test_shutdown.ShutdownTests.test_browser_closes_before_native_picker_returns) ... ok
 
 ----------------------------------------------------------------------
-Ran 46 tests in 25.288s
+Ran 47 tests in 22.369s
 
 OK
 
@@ -63,18 +65,18 @@ OK
 > /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --check /workspace/work/github-delivery/extension/shared.js
 
 > /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --test /workspace/work/github-delivery/tests/test_extension_security.mjs
-✔ only supported HTTPS YouTube video URLs are accepted (1.162278ms)
-✔ download requests contain metadata only; caller cannot set prefs or authorization (0.948869ms)
-✔ settings validate independent qualities and booleans, ignoring unsupported authority fields (0.252027ms)
-✔ worker locks full snapshots to trusted storage before reading or writing (2.353599ms)
-✔ content cannot edit prefs, consent, native directories or arbitrary job IDs (1.065273ms)
-✔ cached v2 state cannot authorize sending downloads or settings to a live old host (4.15822ms)
-✔ one click passes metadata only to a live compatible host without picker (1.755793ms)
-✔ live tab messages contain only that document owned jobs, sanitized notes/errors and prefs (8.873675ms)
-✔ subscription ownership survives service worker restart but remains document-bound (1.314921ms)
-✔ raw native failures never expose paths to content, while folder errors stay actionable (2.220313ms)
-✔ popup settings and explicit picker remain privileged and preserve native state (1.17613ms)
-✔ port loss after live capability response cannot reconnect and forward an unverified download (1.14719ms)
+✔ only supported HTTPS YouTube video URLs are accepted (1.114708ms)
+✔ download requests contain metadata only; caller cannot set prefs or authorization (0.896574ms)
+✔ settings validate independent qualities and booleans, ignoring unsupported authority fields (0.254646ms)
+✔ worker locks full snapshots to trusted storage before reading or writing (2.626029ms)
+✔ content cannot edit prefs, consent, native directories or arbitrary job IDs (1.040468ms)
+✔ cached v2 state cannot authorize sending downloads or settings to a live old host (3.902964ms)
+✔ one click passes metadata only to a live compatible host without picker (1.74055ms)
+✔ live tab messages contain only that document owned jobs, sanitized notes/errors and prefs (5.400184ms)
+✔ subscription ownership survives service worker restart but remains document-bound (1.493796ms)
+✔ raw native failures never expose paths to content, while folder errors stay actionable (2.49321ms)
+✔ popup settings and explicit picker remain privileged and preserve native state (1.203702ms)
+✔ port loss after live capability response cannot reconnect and forward an unverified download (1.2847ms)
 ℹ tests 12
 ℹ suites 0
 ℹ pass 12
@@ -82,6 +84,6 @@ OK
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 93.551094
+ℹ duration_ms 84.245765
 
 Verificações solicitadas concluídas.

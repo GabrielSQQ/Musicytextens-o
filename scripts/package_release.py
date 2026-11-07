@@ -1,5 +1,6 @@
 """Rebuild source/extension ZIPs from this checkout without build caches."""
 from pathlib import Path
+import argparse
 import hashlib
 import zipfile
 
@@ -14,6 +15,9 @@ def files(base):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--installer", type=Path, help="Also hash the Windows Setup built by CI")
+    args = parser.parse_args()
     destination = ROOT / "downloads"
     destination.mkdir(exist_ok=True)
     targets = [("OperaMusicDownloader-Fonte.zip", ROOT, "OperaMusicDownloader"),
@@ -29,6 +33,9 @@ def main():
         digest = hashlib.sha256(target.read_bytes()).hexdigest()
         sums.append(f"{digest}  {name}\n")
         print(f"{name}: {target.stat().st_size} bytes, SHA256 {digest}")
+    if args.installer:
+        digest = hashlib.sha256(args.installer.read_bytes()).hexdigest()
+        sums.append(f"{digest}  {args.installer.name}\n")
     (destination / "SHA256SUMS.txt").write_text("".join(sums), encoding="ascii")
 
 
