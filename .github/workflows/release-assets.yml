@@ -1,0 +1,37 @@
+name: Prepare verified release assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, matching the extension version
+        required: true
+        default: v1.1.0
+      build_run_id:
+        description: Successful Windows build run containing the tested Setup
+        required: true
+        default: '42320573847'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release-assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Download the tested Windows artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: OperaMusicDownloader-Windows-x64
+          path: work/release-build-artifact
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify and upload assets to a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: python3 scripts/publish_release_assets.py --artifact-directory work/release-build-artifact

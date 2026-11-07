@@ -118,3 +118,7 @@ exigido. As licenças Python/Tcl/Tk/PyInstaller do payload são incluídas no Se
 ## Build publicado da versão 1.1.0
 
 A [execução 42320573847](https://github.com/GabrielSQQ/Musicytextens-o/actions/runs/42320573847) concluiu compilação, instalação real e testes do host Windows com sucesso no commit `24faeea6bbe92521f5d6a54edabcf0c258569f70`. [Instalador para download](https://github.com/GabrielSQQ/Musicytextens-o/releases/download/v1.1.0/OperaMusicDownloader-Setup.exe). Consulte [TESTES.md](TESTES.md) para evidências e limitações de aceitação visual.
+
+## Preparar uma release com os artefatos validados
+
+O workflow manual `Prepare verified release assets` recebe a tag e o ID da execução Windows bem-sucedida. Ele confere o commit e os relatórios, verifica os hashes do Setup e dos ZIPs e envia os seis arquivos para uma release em rascunho. O token de escrita é temporário do próprio GitHub Actions; não se copia credencial para o projeto. O workflow não publica automaticamente: confira os arquivos e publique o rascunho após a validação. A execução Windows original permanece preservada.
