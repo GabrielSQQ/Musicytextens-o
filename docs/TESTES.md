@@ -2,7 +2,7 @@
 
 A atualização foi aplicada ao projeto existente. O fluxo principal foi testado com a extensão carregada de verdade no Chrome for Testing 151, Native Messaging, aplicativo Python, yt-dlp 2026.10.26 e FFmpeg/FFprobe 7.1.5 no Linux. As páginas do YouTube e as fontes de mídia são sintéticas e autorizadas.
 
-**Resultado local:** 46 testes Python, 12 testes de segurança JavaScript e 8 cenários com a extensão real passaram. No modo isolado de interface, 11 cenários passaram com um dublê de comunicação explicitamente identificado. Os 3 cenários exclusivos desse modo aparecem como pulados na execução com extensão real e não são contados como testes de Native Messaging.
+**Resultado local:** 47 testes Python, 12 testes de segurança JavaScript e 8 cenários com a extensão real passaram. No modo isolado de interface, 11 cenários passaram com um dublê de comunicação explicitamente identificado. Os 3 cenários exclusivos desse modo aparecem como pulados na execução com extensão real e não são contados como testes de Native Messaging.
 
 Duas integrações adicionais passaram: preferências/migração com reinício real do navegador e download completo com um clique. Nenhum resultado Linux é apresentado como execução no Opera GX ou no YouTube real. A validação Windows é registrada separadamente abaixo.
 

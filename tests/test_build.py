@@ -88,6 +88,31 @@ class DependencyBuildTests(unittest.TestCase):
             self.assertEqual((folder / "licenses" / "also-media.mp4").read_bytes(), b"media2")
             self.assertTrue((folder / "personal.txt").exists())
 
+    def test_partial_final_copy_has_cleanup_record_and_preserves_media(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            destination, cache = folder / "tools", folder / "cache"
+            destination.mkdir()
+            cache.mkdir()
+            media = destination / "minha música.mp3"
+            media.write_bytes(b"preserved")
+            data = b"verified executable fixture"
+            (cache / "fixture.exe").write_bytes(data)
+            artifact = dict(name="fixture", version="1", url="https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp.exe", sha256=hashlib.sha256(data).hexdigest(), filename="fixture.exe", kind="file", target="ffmpeg.exe")
+            original_copy = FETCH.shutil.copy2
+
+            def interrupted_copy(source, target, *args, **kwargs):
+                if Path(target).resolve().is_relative_to(destination.resolve()):
+                    raise OSError("simulated interrupted final install")
+                return original_copy(source, target, *args, **kwargs)
+
+            with patch.object(FETCH.shutil, "copy2", side_effect=interrupted_copy):
+                with self.assertRaises(OSError):
+                    FETCH.install_from_cache({"artifacts": [artifact]}, destination, cache, offline=True)
+            self.assertTrue((destination / ".installed-dependencies.json").is_file())
+            INSTALL.remove_installed_tools(destination)
+            self.assertEqual(media.read_bytes(), b"preserved")
+
     def test_extracts_only_known_tools_and_license(self):
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary)

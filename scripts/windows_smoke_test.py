@@ -99,7 +99,9 @@ def main():
     report = {"platform": "Windows", "selfTest": json.loads(conversion.stdout), "checks": {}}
     assert report["selfTest"]["ok"] and report["selfTest"]["version"] == "1.1.0"
     with tempfile.TemporaryDirectory(prefix="OMD teste acentuação ") as temporary:
-        base = Path(temporary)
+        # Windows TEMP can use an 8.3 username alias. The host deliberately
+        # canonicalizes destination paths before persisting them.
+        base = Path(temporary).resolve()
         destination = base / "Músicas com espaços e acentos"
         destination.mkdir()
         marker = destination / "não excluir.mp3"
@@ -120,7 +122,7 @@ def main():
                 requested = {"defaultFolder": str(destination), "defaultFormat": "mp3", "mp3Quality": 320, "mp4Quality": 720, "authorizedDownloads": True}
                 settings = native.request("settings", requested)
                 for key, value in requested.items():
-                    assert settings[key] == value
+                    assert settings[key] == value, f"Preference {key}: {settings[key]!r} != {value!r}"
                 report["checks"]["savedMp3AndUnicodePath"] = True
             finally:
                 native.close()
@@ -128,7 +130,7 @@ def main():
             try:
                 settings = native.request("get_state")["settings"]
                 for key, value in requested.items():
-                    assert settings[key] == value
+                    assert settings[key] == value, f"Persisted preference {key}: {settings[key]!r} != {value!r}"
                 settings = native.request("settings", {"defaultFormat": "mp4", "mp4Quality": 720})
                 assert settings["defaultFormat"] == "mp4" and settings["mp4Quality"] == 720
                 report["checks"]["persistedAcrossNativeRestart"] = True
