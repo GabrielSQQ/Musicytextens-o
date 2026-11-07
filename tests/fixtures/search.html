@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR" dark>
+<meta charset="utf-8">
+<title>Fixture local de resultados do YouTube</title>
+<style>
+body {font-family:Arial;background:#0f0f0f;color:#eee;margin:28px}
+ytd-video-renderer,ytd-rich-item-renderer {display:block;position:relative;padding:18px;margin:14px;border:1px solid #555;min-height:90px}
+a {color:inherit} img {width:96px;height:54px;float:left;margin-right:12px}
+</style>
+<body>
+<h1>Fixture sintética — nenhum vídeo real</h1>
+<main id="contents">
+  <ytd-video-renderer id="result-a">
+    <div id="dismissible">
+      <img src="https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg" alt="">
+      <div id="meta"><h3><a id="video-title" title="Música de teste — ação e acentuação" href="/watch?v=abcdefghijk">Música de teste — ação e acentuação</a></h3>
+        <div id="channel-name"><a href="/@canal-autorizado">Canal Autorizado</a></div><span>3:14</span>
+      </div>
+    </div>
+  </ytd-video-renderer>
+  <ytd-video-renderer id="result-b">
+    <div id="dismissible"><div id="meta"><h3><a id="video-title" href="/watch?v=lmnopqrstuv">&lt;img src=x onerror=alert(1)&gt; Título inofensivo</a></h3>
+      <div id="channel-name"><a href="/@teste">Teste</a></div></div></div>
+  </ytd-video-renderer>
+  <ytd-video-renderer id="invalid-url">
+    <div id="meta"><h3><a id="video-title" href="https://evil.example/watch?v=abcdefghijk">Link externo incompatível</a></h3></div>
+  </ytd-video-renderer>
+  <ytd-playlist-renderer><a href="/playlist?list=PLFIXTURE">Playlist sem download individual</a></ytd-playlist-renderer>
+</main>
+</body>
+</html>

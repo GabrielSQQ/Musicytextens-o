@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "Opera Music Downloader",
+  "version": "1.0.0",
+  "description": "Baixe mídias do YouTube que você tem autorização para salvar, com um aplicativo auxiliar local.",
+  "minimum_chrome_version": "105",
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "notifications"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Opera Music Downloader",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png"
+    }
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://m.youtube.com/*",
+        "https://music.youtube.com/*"
+      ],
+      "js": [
+        "shared.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7iLKlgQuIabEYsxvZ8a1mjOmlVA1pqbNZvbwrYvIR6xctcNqMVcinUk4xFzwKuAzKkctXqTNhs7qUu04Hlt++UcMFGxbRe6eD0dnv38qVPp9+ER7NxP/4hBgTQNg7xalf8iTfLztMgzwTLIubVaRoltCecCo879q8npIjYqsidPXXxwwSfJ/k3Tgbz0F3oTAaQCQ7wjiMnq6+YnSGGvvalJfIQpYvOWa/m/wGAehwHV4CsZUmFIzAaIz47XRDJHy1EAlkbto4/E/4Kpo5l/WHjduz1SsXqSQPgjqsQ74i5Yh/gfic8YWaFtt9bIhqKwO+XWmIijEju42zS/GEaljVwIDAQAB"
+}

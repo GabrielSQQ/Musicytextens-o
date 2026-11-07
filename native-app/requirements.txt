@@ -1,0 +1,2 @@
+# No Python dependencies are needed by the host at runtime.
+# Official standalone yt-dlp, FFmpeg/FFprobe and Deno binaries are bundled by installer.

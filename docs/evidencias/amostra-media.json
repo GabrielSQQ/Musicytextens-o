@@ -1,0 +1,29 @@
+{
+  "source": "Tom sintético de 440 Hz, gerado localmente para este teste.",
+  "pipeline": "HTTP loopback de teste -> yt-dlp -> FFmpeg -> validação FFprobe -> publicação",
+  "productionYouTubeAllowlistUnchanged": true,
+  "sample": "Tom-autorizado-192kbps.mp3",
+  "probe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "mp3",
+        "codec_type": "audio",
+        "bit_rate": "192000"
+      }
+    ],
+    "format": {
+      "duration": "2.037551",
+      "size": "49848",
+      "bit_rate": "195717",
+      "tags": {
+        "title": "Tom autorizado"
+      }
+    }
+  },
+  "stagesObserved": [
+    "converting",
+    "downloading"
+  ]
+}

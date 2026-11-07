@@ -1,0 +1,2 @@
+34850e3f5410646a5a3835861f51c2bf8e3e9fabfc55e70feff706a2f0f3e231  OperaMusicDownloader-Fonte.zip
+f52e4925e86c7baffcc3d67f40861ffa14958becb707b412ca8da8d3dd694e35  OperaMusicDownloader-Extensao.zip

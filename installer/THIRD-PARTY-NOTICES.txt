@@ -1,0 +1,43 @@
+Opera Music Downloader — avisos das ferramentas empacotadas
+
+As ferramentas são executadas como processos separados, sem alterações de código.
+O build usa versões exatas e SHA256 em installer/dependencies.lock.json. Não usa
+URLs latest. Os hashes foram lidos das APIs oficiais dos projetos em 2026-11-06.
+
+yt-dlp 2026.10.26
+  https://github.com/yt-dlp/yt-dlp/tree/2026.10.26
+  O projeto principal usa Unlicense. O executável PyInstaller agrega componentes
+  com outras licenças. LICENSE e THIRD_PARTY_LICENSES.txt exatos dessa versão são
+  obtidos com hashes fixos e incluídos em tools/licenses.
+
+Deno 2.9.8
+  https://github.com/denoland/deno/tree/v2.9.8
+  MIT, com componentes de terceiros, incluindo V8. LICENSE.md é incluído em
+  tools/licenses. As licenças internas dos componentes devem ser preservadas
+  por quem publicar uma distribuição binária.
+
+FFmpeg / FFprobe 8.1.3, BtbN win64 GPL, commit 8dca1586f4
+  https://ffmpeg.org/
+  https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-10-31-12-59
+  https://github.com/FFmpeg/FFmpeg/tree/8dca1586f4
+  A distribuição GPL inclui libx264 para conversão MP4/H.264. As licenças e
+  informações presentes no arquivo oficial são preservadas em tools/licenses.
+  Scripts e lista de dependências: https://github.com/BtbN/FFmpeg-Builds
+  Guia do FFmpeg: https://ffmpeg.org/legal.html
+
+CPython / Tcl / Tk / PyInstaller
+  A licença do Python e os arquivos LICENSE/COPYING das dependências Python do
+  ambiente de build são copiados para tools/licenses. Os recursos Tcl/Tk são
+  empacotados pelo hook oficial do PyInstaller.
+  https://docs.python.org/3/license.html
+  https://pyinstaller.org/en/stable/license.html
+
+Para quem redistribuir instaladores publicamente
+  Este repositório entrega fontes e scripts; não entrega binários compilados.
+  Antes de publicar um instalador que agregue FFmpeg GPL e outras bibliotecas,
+  disponibilize também o código-fonte correspondente completo dessas versões,
+  inclusive dependências vinculadas e scripts de compilação, na mesma
+  distribuição ou por uma forma permitida pela licença. Links genéricos para
+  projetos não substituem essas obrigações. Preserve os avisos e licenças de
+  todos os componentes do Deno e yt-dlp agregados no executável. Assine o
+  instalador com um certificado de sua organização quando disponível.

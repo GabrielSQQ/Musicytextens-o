@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "trustedContentButton": true,
+  "realExtension": true,
+  "realNativeMessaging": true,
+  "realYtDlpFfmpegAndFfprobe": true,
+  "popupClosedDuringProcessing": true,
+  "localSyntheticSourceInjectedOnlyInTestHost": true,
+  "nativeWindowsFolderDialogTested": false,
+  "liveYouTubeTested": false,
+  "outputFile": "Fonte autorizada.mp3",
+  "probe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "mp3",
+        "codec_type": "audio",
+        "bit_rate": "192000"
+      }
+    ],
+    "format": {
+      "duration": "2.037551",
+      "size": "49854"
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "resolvedAt": "2026-11-06",
+  "platform": "windows-x86_64",
+  "artifacts": [
+    {
+      "name": "yt-dlp",
+      "version": "2026.10.26",
+      "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp.exe",
+      "sha256": "f5389d3698ecde4ef06f4e6b1ce0294fe9ac1396228c8990b8d3416d6d177a7d",
+      "filename": "yt-dlp.exe",
+      "kind": "file",
+      "target": "yt-dlp.exe",
+      "source": "https://github.com/yt-dlp/yt-dlp/tree/2026.10.26",
+      "license": "Unlicense; standalone executables bundle additional third-party components. Upstream LICENSE and redistribution notes must also be preserved."
+    },
+    {
+      "name": "deno",
+      "version": "2.9.8",
+      "url": "https://github.com/denoland/deno/releases/download/v2.9.8/deno-x86_64-pc-windows-msvc.zip",
+      "sha256": "cba84b26e0df5ae7f74fc66b86a95b866872a86292ebd84fa1e959927edd93bf",
+      "filename": "deno-2.9.8-win64.zip",
+      "kind": "zip",
+      "members": {
+        "deno.exe": "deno.exe"
+      },
+      "source": "https://github.com/denoland/deno/tree/v2.9.8",
+      "license": "MIT; runtime includes third-party components including V8. Preserve upstream and third-party license notices."
+    },
+    {
+      "name": "ffmpeg",
+      "version": "8.1.3-27-g8dca1586f4-gpl-BtbN-2026-10-31",
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-31-12-59/ffmpeg-n8.1.3-27-g8dca1586f4-win64-gpl-8.1.zip",
+      "sha256": "401dffcf14c301082e1fc03b0bc876b92ea676bfc521fc56e80a1537d137034f",
+      "filename": "ffmpeg-8.1.3-gpl-win64.zip",
+      "kind": "zip",
+      "members": {
+        "bin/ffmpeg.exe": "ffmpeg.exe",
+        "bin/ffprobe.exe": "ffprobe.exe"
+      },
+      "source": "https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-10-31-12-59",
+      "license": "GPL build including libx264. Preserve licenses and publish complete corresponding sources when redistributing binaries. FFmpeg commit 8dca1586f4; build scripts and dependency list https://github.com/BtbN/FFmpeg-Builds ."
+    },
+    {
+      "name": "yt-dlp-license",
+      "version": "2026.10.26",
+      "url": "https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.10.26/LICENSE",
+      "sha256": "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c",
+      "filename": "yt-dlp-2026.10.26-LICENSE.txt",
+      "kind": "license",
+      "target": "yt-dlp-LICENSE.txt"
+    },
+    {
+      "name": "deno-license",
+      "version": "2.9.8",
+      "url": "https://raw.githubusercontent.com/denoland/deno/v2.9.8/LICENSE.md",
+      "sha256": "f62497fffecc0852960c8d3e6934b9db86d16396e9b604072e923892cae3a588",
+      "filename": "deno-2.9.8-LICENSE.txt",
+      "kind": "license",
+      "target": "deno-LICENSE.txt"
+    },
+    {
+      "name": "yt-dlp-third-party-licenses",
+      "version": "2026.10.26",
+      "url": "https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.10.26/THIRD_PARTY_LICENSES.txt",
+      "sha256": "472aefe951c7db35e1657c1d13fd337140511ed6f2b329205105ad441c5a02b7",
+      "filename": "yt-dlp-2026.10.26-THIRD_PARTY_LICENSES.txt",
+      "kind": "license",
+      "target": "yt-dlp-THIRD_PARTY_LICENSES.txt"
+    }
+  ]
+}

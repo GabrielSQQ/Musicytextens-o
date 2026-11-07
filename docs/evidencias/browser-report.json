@@ -1,0 +1,78 @@
+{
+  "mode": "extension",
+  "browser": "151.0.7922.34",
+  "extension_id": "kinpjcjipphcbboncbjmodfiiblgfaoo",
+  "synthetic_pages": true,
+  "live_youtube_tested": false,
+  "opera_gx_tested": false,
+  "tests_run": 8,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "tests": [
+    {
+      "test": "test_dynamic_scroll_mutations_do_not_duplicate_buttons",
+      "mode": "extension",
+      "passed": true,
+      "skipped": false,
+      "seconds": 1.19,
+      "page_errors": []
+    },
+    {
+      "test": "test_extension_pages_load_and_offline_state_is_clear",
+      "mode": "extension",
+      "passed": true,
+      "skipped": false,
+      "seconds": 0.584,
+      "page_errors": []
+    },
+    {
+      "test": "test_modal_formats_authorization_and_safe_title",
+      "mode": "extension",
+      "passed": true,
+      "skipped": false,
+      "seconds": 0.426,
+      "page_errors": []
+    },
+    {
+      "test": "test_music_list_injects_supported_track",
+      "mode": "extension",
+      "passed": true,
+      "skipped": false,
+      "seconds": 0.255,
+      "page_errors": []
+    },
+    {
+      "test": "test_recycled_renderer_reads_current_video",
+      "mode": "extension",
+      "passed": true,
+      "skipped": false,
+      "seconds": 0.775,
+      "page_errors": []
+    },
+    {
+      "test": "test_search_only_compatible_individual_videos",
+      "mode": "extension",
+      "passed": true,
+      "skipped": false,
+      "seconds": 0.177,
+      "page_errors": []
+    },
+    {
+      "test": "test_synthetic_page_click_cannot_authorize_download",
+      "mode": "extension",
+      "passed": true,
+      "skipped": false,
+      "seconds": 0.674,
+      "page_errors": []
+    },
+    {
+      "test": "test_watch_and_spa_navigation_update_video",
+      "mode": "extension",
+      "passed": true,
+      "skipped": false,
+      "seconds": 0.863,
+      "page_errors": []
+    }
+  ]
+}
