@@ -3,11 +3,15 @@
   if (globalThis.__omdContentInstalled) return;
   globalThis.__omdContentInstalled = true;
   const CARD = "ytd-video-renderer,ytd-grid-video-renderer,ytd-rich-item-renderer,yt-lockup-view-model,ytmusic-responsive-list-item-renderer,ytmusic-two-row-item-renderer";
+  const DISCONNECTED = "Aplicativo auxiliar desconectado. Abra a extensão para verificar.";
   let scheduled = false;
-  let dialogHost = null;
+  let preferences = {defaultFormat:"mp3",mp3Quality:320,mp4Quality:720};
+  const records = new Map();
+  const downloads = new Map();
+  const seenJobs = new Map();
   const style = document.createElement("style");
   style.id = "omd-page-style";
-  style.textContent = `.omd-download-button{display:inline-flex!important;align-items:center;gap:6px;background:#24242c!important;border:1px solid #ff315866!important;color:#fff!important;border-radius:20px;padding:8px 13px!important;font:600 12px/1.2 Arial,sans-serif!important;cursor:pointer!important;margin:7px 6px 7px 0!important;white-space:nowrap;transition:background .15s,transform .15s;position:relative;z-index:1}.omd-download-button:hover{background:#e72d51!important;transform:translateY(-1px)}.omd-download-button:focus-visible{outline:2px solid #ff3158;outline-offset:3px}.omd-download-button svg{width:15px;height:15px;flex:none;pointer-events:none}`;
+  style.textContent = `.omd-download-control{display:inline-flex!important;flex-wrap:wrap;align-items:center;max-width:100%;gap:0 8px;vertical-align:middle}.omd-download-button{display:inline-flex!important;align-items:center;gap:6px;background:#24242c!important;border:1px solid #ff315866!important;color:#fff!important;border-radius:20px;padding:8px 13px!important;font:600 12px/1.2 Arial,sans-serif!important;cursor:pointer!important;margin:7px 6px 7px 0!important;white-space:nowrap;transition:background .15s;position:relative;z-index:1}.omd-download-button:hover:not(:disabled){background:#e72d51!important}.omd-download-button:disabled{cursor:wait!important;opacity:.75}.omd-download-button:focus-visible{outline:2px solid #ff3158;outline-offset:3px}.omd-download-button svg{width:15px;height:15px;flex:none;pointer-events:none}.omd-download-feedback{font:11px/1.4 Arial,sans-serif!important;color:#b9b9c6!important;max-width:300px;overflow-wrap:anywhere}.omd-download-feedback.error{color:#ff6987!important}.omd-download-feedback.completed{color:#52c99d!important}.omd-download-button[data-state=pending] svg{animation:omd-pulse 1s infinite}@keyframes omd-pulse{50%{opacity:.3}}@media(prefers-reduced-motion:reduce){.omd-download-button svg{animation:none!important}}`;
   (document.head || document.documentElement).append(style);
   function text(root,selectors) {
     for (const selector of selectors) { const value = root.querySelector(selector)?.textContent?.trim(); if (value) return value; }
@@ -30,116 +34,100 @@
     const videoId = new URL(url).searchParams.get("v");
     return {url,title,channel,thumbnail:`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`};
   }
+  function request(type,payload={}) {
+    return chrome.runtime.sendMessage({type,payload}).then(response=>{if(!response?.ok)throw new Error(response?.error || DISCONNECTED);return response.result;});
+  }
+  function paint(button,record) {
+    const info=record.dataGetter();
+    const state=info?downloads.get(info.url):null;
+    const phase=state?.status || "idle";
+    const busy=phase === "pending" || OMD.active.has(phase);
+    const labels={pending:"Preparando…",queued:"Na fila…",preparing:"Preparando…",downloading:Number.isFinite(state?.progress)?`Baixando ${Math.floor(state.progress)}%` : "Baixando…",converting:"Convertendo…",completed:"Salvo ✓",error:"Tentar novamente",cancelled:"Cancelado"};
+    const label=labels[phase] || `Baixar ${preferences.defaultFormat === "mp4"?"MP4":"MP3"}`;
+    const span=button.querySelector(".omd-button-label");if(span.textContent!==label)span.textContent=label;
+    button.disabled=busy;button.dataset.state=phase;button.setAttribute("aria-busy",String(busy));button.setAttribute("aria-label",label+" com Opera Music Downloader");
+    const feedback=phase === "error"?state.error:phase === "completed"?(state.resultNote || "Arquivo salvo com sucesso!"):phase === "cancelled"?"Download cancelado.":"";
+    if(record.feedback.textContent!==feedback)record.feedback.textContent=feedback;
+    record.feedback.className=`omd-download-feedback ${phase}`;
+  }
+  function paintAll() {
+    for(const [button,record]of records){if(!button.isConnected){records.delete(button);continue;}paint(button,record);}
+  }
+  function terminal(url,state) {
+    if(state.resetTimer)clearTimeout(state.resetTimer);
+    state.resetTimer=setTimeout(()=>{if(downloads.get(url)===state){downloads.delete(url);paintAll();}},5000);
+  }
+  function update(data) {
+    if(data?.preferences){preferences={...preferences,...data.preferences};}
+    if(data?.connection?.connected === false) {
+      for(const [url,state]of downloads)if(state.status === "pending" || OMD.active.has(state.status)) {
+        if(state.resetTimer)clearTimeout(state.resetTimer);
+        const failed={status:"error",error:DISCONNECTED};downloads.set(url,failed);terminal(url,failed);
+      }
+      seenJobs.clear();paintAll();return;
+    }
+    for(const job of data?.jobs || []) {
+      if(!job.url)continue;
+      const fingerprint=JSON.stringify([job.status,job.progress,job.error,job.resultNote]);
+      if(seenJobs.get(job.id)===fingerprint)continue;
+      seenJobs.set(job.id,fingerprint);
+      const existing=downloads.get(job.url);
+      if(existing?.resetTimer)clearTimeout(existing.resetTimer);
+      const state={status:job.status,progress:job.progress,jobId:job.id,error:job.error,resultNote:job.resultNote};
+      downloads.set(job.url,state);
+      if(!OMD.active.has(job.status))terminal(job.url,state);
+    }
+    if(seenJobs.size>300){const keep=[...seenJobs].slice(-200);seenJobs.clear();for(const [key,value]of keep)seenJobs.set(key,value);}
+    paintAll();
+  }
   function button(dataGetter,context) {
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "omd-download-button"; b.dataset.omdContext = context;
-    b.setAttribute("aria-label","Baixar MP3 com Opera Music Downloader");
-    b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5"/></svg><span>Baixar MP3</span>';
-    b.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); if (!e.isTrusted) return; const info = dataGetter(); if (info) openDialog(info); });
-    return b;
+    const wrap=document.createElement("span");wrap.className="omd-download-control";
+    const b=document.createElement("button");b.type="button";b.className="omd-download-button";b.dataset.omdContext=context;
+    b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5"/></svg><span class="omd-button-label"></span>';
+    const feedback=document.createElement("span");feedback.className="omd-download-feedback";feedback.setAttribute("role","status");feedback.setAttribute("aria-live","polite");
+    const record={dataGetter,feedback};records.set(b,record);wrap.append(b,feedback);paint(b,record);
+    b.addEventListener("click",async event=>{
+      event.preventDefault();event.stopPropagation();
+      if(!event.isTrusted)return;
+      const info=dataGetter();if(!info)return;
+      const previous=downloads.get(info.url);if(previous?.status === "pending" || OMD.active.has(previous?.status))return;
+      if(previous?.resetTimer)clearTimeout(previous.resetTimer);
+      const state={status:"pending"};downloads.set(info.url,state);paintAll();
+      try {
+        const result=await request("download",info);
+        // A very short job may already have completed via a live event before its acknowledgement.
+        const current=downloads.get(info.url);
+        if(current===state){state.status="queued";state.jobId=result.jobId;paintAll();}
+      }catch(error){
+        const failed={status:"error",error:error.message || DISCONNECTED};downloads.set(info.url,failed);terminal(info.url,failed);paintAll();
+      }
+    });
+    return wrap;
   }
   function scan() {
-    scheduled = false;
-    for (const card of document.querySelectorAll(CARD)) {
-      // Rich results may wrap another supported renderer; keep one button per item.
-      if (card.parentElement?.closest(CARD)) continue;
-      const existing = card.querySelector("button.omd-download-button");
-      const info = cardData(card);
-      if (!info) { existing?.remove(); continue; }
-      if (existing) continue;
-      const music = card.tagName.toLowerCase().startsWith("ytmusic");
-      const target = card.querySelector("#meta,#metadata,#details,.yt-lockup-metadata-view-model__text-container,.flex-columns,.details") || card;
-      target.append(button(() => cardData(card), music ? "music" : "result"));
+    scheduled=false;
+    for(const card of document.querySelectorAll(CARD)) {
+      if(card.parentElement?.closest(CARD))continue;
+      const existing=card.querySelector("button.omd-download-button");
+      if(!cardData(card)){existing?.closest(".omd-download-control")?.remove();continue;}
+      if(existing)continue;
+      const music=card.tagName.toLowerCase().startsWith("ytmusic");
+      const target=card.querySelector("#meta,#metadata,#details,.yt-lockup-metadata-view-model__text-container,.flex-columns,.details") || card;
+      target.append(button(()=>cardData(card),music?"music":"result"));
     }
-    const valid = OMD.videoUrl(location.href);
-    const existing = document.querySelector("button.omd-download-button[data-omd-context='watch']");
-    if (!valid) { existing?.remove(); return; }
-    if (existing) return;
-    const target = document.querySelector("ytd-watch-metadata #top-level-buttons-computed,ytd-watch-metadata #actions,#menu-container #top-level-buttons-computed,ytmusic-player-bar .middle-controls,ytmusic-player-bar .content-info-wrapper");
-    if (target) target.append(button(watchData,"watch"));
+    const valid=OMD.videoUrl(location.href);
+    const existing=document.querySelector("button.omd-download-button[data-omd-context='watch']");
+    if(!valid)existing?.closest(".omd-download-control")?.remove();
+    else if(!existing){const target=document.querySelector("ytd-watch-metadata #top-level-buttons-computed,ytd-watch-metadata #actions,#menu-container #top-level-buttons-computed,ytmusic-player-bar .middle-controls,ytmusic-player-bar .content-info-wrapper");if(target)target.append(button(watchData,"watch"));}
+    paintAll();
   }
-  function schedule() { if (!scheduled) { scheduled = true; setTimeout(scan,180); } }
-  const observer = new MutationObserver(records => {
-    if (records.some(record => {
-      const node = record.target.nodeType === Node.ELEMENT_NODE ? record.target : record.target.parentElement;
-      return !node?.closest?.(".omd-download-button,#omd-dialog-host,#omd-page-style");
-    })) schedule();
+  function schedule(){if(!scheduled){scheduled=true;setTimeout(scan,180);}}
+  const observer=new MutationObserver(changes=>{
+    if(changes.some(change=>{const node=change.target.nodeType===Node.ELEMENT_NODE?change.target:change.target.parentElement;return !node?.closest?.(".omd-download-control,#omd-page-style");}))schedule();
   });
   observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:["href"]});
-  for (const event of ["yt-navigate-finish","yt-page-data-updated","ytmusic-navigate-finish","popstate"]) window.addEventListener(event,schedule);
+  for(const event of ["yt-navigate-finish","yt-page-data-updated","ytmusic-navigate-finish","popstate"])window.addEventListener(event,schedule);
+  chrome.runtime.onMessage.addListener(message=>{if(message?.event === "content_state")update(message.data);});
   scan();
-  function request(type,payload = {}) {
-    return chrome.runtime.sendMessage({type,payload}).then(response => {
-      if (!response?.ok) throw new Error(response?.error || "Não foi possível falar com a extensão. Recarregue esta página.");
-      return response.result;
-    });
-  }
-  function openDialog(info) {
-    dialogHost?.remove();
-    const oldFocus = document.activeElement;
-    const host = document.createElement("div"); host.id = "omd-dialog-host";
-    dialogHost = host;
-    const shadow = host.attachShadow({mode:"open"});
-    shadow.innerHTML = `<style>
-      :host{all:initial;position:fixed;inset:0;z-index:2147483647;color:#fff;font:14px/1.5 system-ui,sans-serif;color-scheme:dark}*{box-sizing:border-box}.overlay{position:absolute;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(5px)}.dialog{width:440px;max-width:100%;max-height:94vh;overflow:auto;background:#121216;border:1px solid #35353e;border-radius:22px;box-shadow:0 25px 100px #000a;padding:25px}header{display:flex;justify-content:space-between;align-items:center;color:#ff3158;font-size:11px;font-weight:800;letter-spacing:1.6px}button,select,input{font:inherit}button{cursor:pointer}#omd-close{background:none;border:0;color:#c2c2cd;font-size:25px;line-height:1}.media{display:flex;gap:15px;margin:24px 0}img{width:112px;height:72px;object-fit:cover;border-radius:10px;background:#1d1d24}.info{min-width:0}h2{font-size:17px;line-height:1.4;margin:0 0 6px;overflow-wrap:anywhere}.muted{color:#aaaab8;font-size:12px;margin:0}.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}label{display:block;font-size:12px;color:#c4c4d0}select{width:100%;background:#1d1d24;color:#fff;border:1px solid #383843;border-radius:10px;padding:11px;margin:6px 0 12px}.note{font-size:12px;color:#aaaab8;margin:3px 0 17px}.auth{display:flex;align-items:flex-start;gap:9px;background:#1d1d24;border-radius:10px;padding:12px;color:#ddd}.auth input{margin-top:3px;accent-color:#ff3158;flex:none}#omd-start{width:100%;border:0;border-radius:12px;background:#ff3158;color:#fff;padding:14px;font-weight:700;margin-top:18px}#omd-start:disabled{opacity:.4;cursor:default}#omd-message{min-height:22px;font-size:12px;color:#d6d6df;margin:12px 0 0;overflow-wrap:anywhere}#omd-message.error{color:#ff8ba0}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #ff7e96;outline-offset:3px}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
-      </style><div class="overlay"><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="omd-title"><header><span>OPERA MUSIC DOWNLOADER</span><button id="omd-close" aria-label="Fechar">×</button></header><div class="media"><img id="omd-thumbnail" alt=""><div class="info"><h2 id="omd-title"></h2><p class="muted" id="omd-channel"></p></div></div><div class="fields"><label>Formato<select id="omd-format"><option value="mp3">MP3 · áudio</option><option value="m4a">M4A · áudio</option><option value="opus">OPUS · áudio</option><option value="mp4">MP4 · vídeo</option></select></label><label id="omd-quality-label">Qualidade<select id="omd-quality"></select></label></div><p class="note" id="omd-quality-note">Converter para 320 kbps não melhora a qualidade do áudio original.</p><label class="auth"><input id="omd-authorized" type="checkbox"><span>Tenho autorização para baixar e salvar este conteúdo.</span></label><button id="omd-start" disabled>Escolher pasta e baixar</button><p id="omd-message" aria-live="polite">Verificando aplicativo auxiliar…</p></section></div>`;
-    shadow.getElementById("omd-title").textContent = info.title;
-    shadow.getElementById("omd-channel").textContent = info.channel || "YouTube";
-    const image = shadow.getElementById("omd-thumbnail");
-    image.addEventListener("error", () => { image.hidden = true; }, {once:true});
-    if (info.thumbnail) image.src = info.thumbnail; else image.hidden = true;
-    const format = shadow.getElementById("omd-format");
-    const quality = shadow.getElementById("omd-quality");
-    const start = shadow.getElementById("omd-start");
-    const authorized = shadow.getElementById("omd-authorized");
-    const message = shadow.getElementById("omd-message");
-    let sending = false;
-    let authorizationAccepted = false;
-    function qualities() {
-      quality.replaceChildren();
-      const bestAudio = ["m4a","opus"].includes(format.value);
-      for (const value of format.value === "mp4" ? [360,720,1080] : [128,192,320]) {
-        if (bestAudio && value !== 192) continue;
-        const option = document.createElement("option"); option.value = value; option.textContent = format.value === "mp4" ? `Até ${value}p` : `${value} kbps`;
-        if (bestAudio) option.textContent = "Melhor disponível";
-        quality.append(option);
-      }
-      quality.value = format.value === "mp4" ? "720" : "192";
-      quality.disabled = bestAudio;
-      shadow.getElementById("omd-quality-note").textContent = format.value === "mp4" ? "A resolução depende do vídeo disponível. Áudio e vídeo são mesclados automaticamente." : format.value === "mp3" ? "Converter para 320 kbps não melhora a qualidade do áudio original." : "Usa o melhor áudio disponível; o formato de origem pode exigir conversão.";
-    }
-    qualities(); format.addEventListener("change",qualities);
-    authorized.addEventListener("change",event => {if (!event.isTrusted) return; authorizationAccepted = authorized.checked; start.disabled = !authorizationAccepted || sending;});
-    function close() { host.remove(); if (dialogHost === host) dialogHost = null; oldFocus?.focus?.(); document.removeEventListener("keydown",keyHandler,true); }
-    function keyHandler(event) {
-      if (event.key === "Escape") { event.stopPropagation(); close(); }
-      if (event.key === "Tab") {
-        const focusable = [...shadow.querySelectorAll("button,select,input")].filter(el => !el.disabled);
-        const index = focusable.indexOf(shadow.activeElement);
-        if (event.shiftKey && index <= 0) { event.preventDefault(); focusable.at(-1)?.focus(); }
-        else if (!event.shiftKey && index === focusable.length - 1) {event.preventDefault(); focusable[0]?.focus();}
-      }
-    }
-    shadow.getElementById("omd-close").addEventListener("click",close);
-    shadow.querySelector(".overlay").addEventListener("click",e => { if (e.target.className === "overlay") close(); });
-    document.addEventListener("keydown",keyHandler,true);
-    start.addEventListener("click",async event => {
-      if (!event.isTrusted || !authorizationAccepted || !authorized.checked || sending) return;
-      sending = true; start.disabled = true; message.className = ""; message.textContent = "Selecione a pasta na janela do Windows. Ela pode aparecer atrás do navegador.";
-      try {
-        const result = await request("download",{...info,format:format.value,quality:Number(quality.value),authorized:true});
-        message.textContent = result?.cancelled ? "Seleção cancelada. Nenhum download foi iniciado." : "Adicionado à fila! Acompanhe o download no ícone da extensão.";
-        if (!result?.cancelled) { start.textContent = "Download adicionado"; return; }
-      } catch (error) {message.className="error"; message.textContent=error.message || "Recarregue a página para reconectar a extensão.";}
-      finally { sending=false; if (start.textContent !== "Download adicionado") start.disabled=!authorized.checked; }
-    });
-    document.documentElement.append(host);
-    shadow.getElementById("omd-close").focus();
-    request("get_state").then(state => {
-      if (!host.isConnected || sending) return;
-      message.textContent = state.connection?.connected ? "Tudo pronto. O processamento acontece no seu computador." : state.connection?.error || "Aplicativo auxiliar indisponível. Confira a instalação.";
-      if (state.settings?.folderMode !== "ask") start.textContent = "Baixar na pasta configurada";
-      if (!state.connection?.connected) message.className="error";
-    }).catch(error => {if (!sending) {message.className="error";message.textContent=error.message;}});
-  }
+  request("get_state").then(update).catch(()=>{});
 })();

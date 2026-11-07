@@ -1,9 +1,9 @@
-Opera Music Downloader
+Opera Music Downloader 1.1.0 — download com um clique
 
-Este pacote instala o aplicativo auxiliar, yt-dlp, FFmpeg, FFprobe e Deno para Windows x64, sem exigir a instalação manual dessas dependências.
+Feche todas as janelas do Opera GX antes de instalar ou atualizar. As preferências e músicas existentes serão preservadas na atualização.
 
-Feche o Opera GX antes de instalar ou atualizar. Após a instalação, você deverá carregar a extensão manualmente em opera://extensions. Uma extensão ainda não publicada não é instalada automaticamente pelo aplicativo.
+É necessária uma conexão à Internet: o assistente obtém automaticamente yt-dlp, FFmpeg, FFprobe e Deno dos projetos oficiais, com progresso e verificação SHA256. Não é preciso instalar essas ferramentas manualmente nem abrir terminal.
 
-Use apenas conteúdos que você esteja autorizado a baixar. Não há login, importação de cookies nem remoção de DRM.
+Após a instalação, atualize a extensão existente em opera://extensions ou carregue a pasta extension manualmente. Configure pasta, formato e qualidade no popup uma vez; os botões do YouTube usarão essas preferências nos próximos downloads.
 
-O programa não é um produto oficial da Opera ou do YouTube.
+Use apenas conteúdos que você esteja autorizado a baixar. Não há login, importação de cookies nem remoção de DRM. Este projeto não é um produto oficial da Opera ou do YouTube.

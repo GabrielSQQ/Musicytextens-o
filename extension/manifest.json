@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Opera Music Downloader",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Baixe mídias do YouTube que você tem autorização para salvar, com um aplicativo auxiliar local.",
-  "minimum_chrome_version": "105",
+  "minimum_chrome_version": "106",
   "permissions": [
     "nativeMessaging",
     "storage",

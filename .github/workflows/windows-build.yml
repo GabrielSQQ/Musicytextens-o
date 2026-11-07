@@ -9,7 +9,7 @@ permissions:
 jobs:
   windows:
     runs-on: windows-2022
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -20,6 +20,20 @@ jobs:
         run: python scripts/fetch_dependencies.py --verify-lock
       - name: Build and self-test native host and installer
         run: python scripts/build_windows.py
+      - name: Install the real Setup and test the installed Windows host
+        shell: pwsh
+        run: |
+          $omdInstallDir = Join-Path $env:RUNNER_TEMP 'OMD instalacao de teste'
+          $omdInstallLog = Join-Path $env:RUNNER_TEMP 'omd-install.log'
+          $omdSetup = Start-Process -FilePath 'dist/OperaMusicDownloader-Setup.exe' -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$omdInstallDir`"", "/LOG=`"$omdInstallLog`"") -PassThru -Wait
+          if ($omdSetup.ExitCode -ne 0) {
+            Get-Content $omdInstallLog
+            $omdDependencyLog = Join-Path $env:LOCALAPPDATA 'OperaMusicDownloader/install-dependencies.log'
+            if (Test-Path $omdDependencyLog) { Get-Content $omdDependencyLog }
+            throw "Setup failed with exit code $($omdSetup.ExitCode)"
+          }
+          python scripts/windows_smoke_test.py --host "$omdInstallDir/OperaMusicDownloaderHost.exe" --report test-results/windows-install.json
+          if ($LASTEXITCODE -ne 0) { throw 'Installed Windows host tests failed' }
       - name: Upload installer and self-test report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -28,5 +42,6 @@ jobs:
             dist/OperaMusicDownloader-Setup.exe
             dist/SHA256SUMS.txt
             work/windows-build/dist/OperaMusicDownloaderHost/build-self-test.json
+            test-results/windows-install.json
           if-no-files-found: error
           retention-days: 14

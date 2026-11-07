@@ -19,7 +19,7 @@ import queue
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "native-app"))
 
-from app import Application
+from app import Application, FOLDER_ERROR, CONSENT_ERROR
 from downloader import Cancelled, Runner, Tools, media_title, safe_filename, validate_url
 from messaging import MAX_MESSAGE, ProtocolError, Writer, read_message
 import main as host_main
@@ -169,7 +169,8 @@ class QueueTests(unittest.TestCase):
                 path.write_bytes(b"queue fixture (not a media test)")
                 return path
 
-        self.app = Application(self.root / "data", tools=StubTools(), picker=lambda _: str(self.folder), runner_factory=ControlledRunner, folder_opener=lambda _: None)
+        self.app = Application(self.root / "data", tools=StubTools(), picker=lambda _: self.fail("downloads must never open a folder picker"), runner_factory=ControlledRunner, folder_opener=lambda _: None)
+        self.app.dispatch("settings", {"defaultFolder": str(self.folder), "authorizedDownloads": True})
 
     def tearDown(self):
         self.release.set()
@@ -189,10 +190,12 @@ class QueueTests(unittest.TestCase):
         self.fail(f"job did not reach {expected}: {self.app.snapshot()}")
 
     def test_authorization_duplicate_active_cancel_retry_and_complete(self):
+        self.app.dispatch("settings", {"authorizedDownloads": False})
         bad = self.payload()
-        bad["authorized"] = False
-        with self.assertRaises(ValueError):
+        bad["authorized"] = True  # Per-request consent cannot replace saved consent.
+        with self.assertRaisesRegex(ValueError, "Confirme na extensão"):
             self.app.dispatch("download", bad)
+        self.app.dispatch("settings", {"authorizedDownloads": True})
         job = self.app.dispatch("download", self.payload())["jobId"]
         self.assertTrue(self.started.wait(2))
         with self.assertRaisesRegex(ValueError, "já está na fila"):
@@ -203,6 +206,7 @@ class QueueTests(unittest.TestCase):
         done = self.wait_status(retry, "completed")
         self.assertTrue(Path(done["path"]).is_file())
         self.assertNotIn("_folder", done)
+        self.assertEqual((done["format"], done["quality"]), ("mp3", 320))
 
     def test_queued_cancel_does_not_start_or_remove_completed_files(self):
         first = self.app.enqueue(self.payload())["jobId"]
@@ -219,14 +223,76 @@ class QueueTests(unittest.TestCase):
 
     def test_settings_persist_and_invalid_path_is_rejected(self):
         with self.assertRaises(ValueError):
-            self.app.dispatch("settings", {"folderMode": "default"})
-        with self.assertRaises(ValueError):
             self.app.dispatch("settings", {"defaultFolder": "../relative"})
-        self.app.dispatch("settings", {"folderMode": "default", "defaultFolder": str(self.folder), "openFolder": True})
+        for invalid in [{"mp3Quality": True}, {"mp3Quality": 256}, {"mp4Quality": "720"}, {"defaultFormat": "opus"}, {"authorizedDownloads": 1}, {"lastFolder": str(self.folder)}, {"folderMode": "ask"}]:
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                self.app.dispatch("settings", invalid)
+        self.app.dispatch("settings", {"defaultFolder": str(self.folder), "openFolder": True, "defaultFormat": "mp4", "mp3Quality": 192, "mp4Quality": 1080})
         self.app.close()
         self.app = Application(self.root / "data", tools=StubTools(), picker=lambda _: self.fail("default folder should avoid picker"))
         self.assertEqual(self.app.choose_folder(), self.folder)
-        self.assertTrue(self.app.snapshot()["settings"]["openFolder"])
+        settings = self.app.snapshot()["settings"]
+        self.assertTrue(settings["openFolder"])
+        self.assertTrue(settings["authorizedDownloads"])
+        self.assertEqual((settings["defaultFormat"], settings["mp3Quality"], settings["mp4Quality"]), ("mp4", 192, 1080))
+
+    def test_new_preferences_affect_only_new_jobs_and_payload_cannot_override(self):
+        first = self.app.enqueue(self.payload())["jobId"]
+        self.assertTrue(self.started.wait(2))
+        old = self.app.enqueue(self.payload("https://youtu.be/12345678901"))["jobId"]
+        new_folder = self.root / "Vídeos & música com espaços"
+        new_folder.mkdir()
+        opened = []
+        self.app.folder_opener = opened.append
+        self.app.dispatch("settings", {"defaultFolder": str(new_folder), "defaultFormat": "mp4", "mp4Quality": 720, "openFolder": True})
+        forged = self.payload("https://youtu.be/ZYXWVUTSRQP")
+        forged.update(format="opus", quality=1, authorized=False, folder="/arbitrary/path")
+        new = self.app.enqueue(forged)["jobId"]
+        with self.app.lock:
+            snapshots = {j["id"]: dict(j) for j in self.app.jobs}
+        self.assertEqual((snapshots[old]["format"], snapshots[old]["quality"], snapshots[old]["_folder"]), ("mp3", 320, str(self.folder)))
+        self.assertEqual((snapshots[new]["format"], snapshots[new]["quality"], snapshots[new]["_folder"]), ("mp4", 720, str(new_folder)))
+        self.assertFalse(snapshots[old]["_openFolder"])
+        self.assertTrue(snapshots[new]["_openFolder"])
+        self.release.set()
+        self.wait_status(first, "completed")
+        self.assertEqual(Path(self.wait_status(old, "completed")["path"]).parent, self.folder)
+        self.assertEqual(Path(self.wait_status(new, "completed")["path"]).parent, new_folder)
+        self.app.work.join()
+        self.assertEqual(opened, [new_folder])
+
+    def test_invalid_configured_folder_never_opens_picker_or_falls_back(self):
+        self.folder.rmdir()
+        with self.assertRaisesRegex(ValueError, "^" + FOLDER_ERROR.replace(".", r"\.") + "$"):
+            self.app.enqueue(self.payload())
+        self.assertEqual(self.app.snapshot()["jobs"], [])
+
+    def test_failed_persistence_rolls_back_preferences_and_queue(self):
+        before = self.app.snapshot()
+        with patch.object(self.app, "_save", side_effect=OSError("disk full")):
+            with self.assertRaises(OSError):
+                self.app.dispatch("settings", {"defaultFormat": "mp4"})
+            with self.assertRaises(OSError):
+                self.app.enqueue(self.payload())
+        self.assertEqual(self.app.snapshot(), before)
+        self.assertTrue(self.app.work.empty())
+        self.release.set()
+        job = self.app.enqueue(self.payload())["jobId"]
+        self.wait_status(job, "completed")
+
+    def test_explicit_picker_commits_folder_without_followup_popup_request(self):
+        selected = self.root / "Pasta escolhida á & espaços"
+        selected.mkdir()
+        with patch.object(self.app, "picker", return_value=str(selected)) as picker:
+            result = self.app.dispatch("pick_folder", {})
+        picker.assert_called_once()
+        self.assertEqual(result, {"path": str(selected)})
+        persisted = json.loads(self.app.state_path.read_text())
+        self.assertEqual(persisted["settings"]["defaultFolder"], str(selected))
+        self.assertEqual(persisted["settings"]["lastFolder"], str(selected))
+        self.release.set()
+        job = self.app.enqueue(self.payload())["jobId"]
+        self.assertEqual(Path(self.wait_status(job, "completed")["path"]).parent, selected)
 
     def test_interrupted_jobs_become_retryable_errors_on_restart(self):
         job = self.app.enqueue(self.payload())["jobId"]
@@ -242,6 +308,78 @@ class QueueTests(unittest.TestCase):
             self.assertIn("tentar novamente", state["error"])
         finally:
             restored.close()
+
+
+class MigrationTests(unittest.TestCase):
+    def make_app(self, base, settings=None, jobs=None, music_folder=None):
+        data = base / "data"
+        data.mkdir(exist_ok=True)
+        if settings is not None:
+            (data / "state.json").write_text(json.dumps({"settings": settings, "jobs": jobs or []}), encoding="utf-8")
+        return Application(data, tools=StubTools(), music_folder=music_folder or (lambda: ""), picker=lambda _: self.fail("migration and download cannot open picker"))
+
+    def test_legacy_default_precedes_last_and_both_persist_after_restart(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            chosen, last = base / "Músicas escolhidas", base / "Última pasta"
+            chosen.mkdir()
+            last.mkdir()
+            app = self.make_app(base, {"folderMode": "ask", "defaultFolder": str(chosen), "lastFolder": str(last), "openFolder": True}, [{"id": "kept", "status": "completed", "title": "Existing history"}], music_folder=lambda: self.fail("configured folders prevent Known Folder fallback"))
+            app.close()
+            app = self.make_app(base)
+            try:
+                state = app.snapshot()
+                self.assertEqual(state["settings"]["defaultFolder"], str(chosen))
+                self.assertEqual(state["settings"]["lastFolder"], str(last))
+                self.assertEqual(state["settings"]["folderMode"], "default")
+                self.assertEqual((state["settings"]["defaultFormat"], state["settings"]["mp3Quality"], state["settings"]["mp4Quality"]), ("mp3", 320, 720))
+                self.assertFalse(state["settings"]["authorizedDownloads"])
+                self.assertTrue(state["settings"]["openFolder"])
+                self.assertEqual(state["jobs"][0]["id"], "kept")
+                self.assertEqual(state["protocolVersion"], 2)
+            finally:
+                app.close()
+
+    def test_legacy_last_folder_is_migrated_even_if_currently_disconnected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            gone = str(base / "Disco desconectado")
+            app = self.make_app(base, {"folderMode": "last", "lastFolder": gone}, music_folder=lambda: self.fail("must not silently reroute existing destination"))
+            try:
+                self.assertEqual(app.snapshot()["settings"]["defaultFolder"], gone)
+                with self.assertRaisesRegex(ValueError, "Configure uma pasta"):
+                    app.choose_folder()
+            finally:
+                app.close()
+
+    def test_known_folder_is_used_only_for_first_unconfigured_install(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            music = base / "Músicas redirecionadas & João"
+            music.mkdir()
+            app = self.make_app(base, music_folder=lambda: str(music))
+            app.close()
+            app = self.make_app(base, music_folder=lambda: self.fail("already migrated folder must remain persistent"))
+            try:
+                self.assertEqual(app.choose_folder(), music)
+            finally:
+                app.close()
+
+    def test_invalid_preferences_default_individually_without_discarding_path_history(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            selected = base / "Destino válido"
+            selected.mkdir()
+            app = self.make_app(base, {"defaultFolder": str(selected), "defaultFormat": "bad", "mp3Quality": True, "mp4Quality": 1, "authorizedDownloads": "true", "openFolder": True}, [{"id": "history", "status": "completed"}])
+            try:
+                state = app.snapshot()
+                self.assertEqual(state["settings"]["defaultFolder"], str(selected))
+                self.assertEqual((state["settings"]["mp3Quality"], state["settings"]["mp4Quality"], state["settings"]["defaultFormat"]), (320, 720, "mp3"))
+                self.assertFalse(state["settings"]["authorizedDownloads"])
+                self.assertTrue(state["settings"]["openFolder"])
+                self.assertEqual(state["jobs"][0]["id"], "history")
+            finally:
+                app.close()
 
 
 class HostProcessTests(unittest.TestCase):
@@ -276,7 +414,7 @@ class HostProcessTests(unittest.TestCase):
             thread.start()
             writer = Writer(request_stream)
             try:
-                writer.send({"id": "choose", "type": "download", "payload": {"url": VIDEO, "format": "mp3", "quality": 192, "authorized": True}})
+                writer.send({"id": "choose", "type": "pick_folder", "payload": {}})
                 self.assertTrue(picker_started.wait(2))
                 writer.send({"id": "ping", "type": "ping", "payload": {}})
                 writer.send({"id": "cancel", "type": "cancel", "payload": {"jobId": "absent"}})
@@ -309,7 +447,9 @@ class HostProcessTests(unittest.TestCase):
             output = io.BytesIO(result.stdout)
             ping, bad = read_message(output), read_message(output)
             self.assertEqual(ping["id"], "ping-1")
-            self.assertEqual(ping["result"]["version"], "1.0.0")
+            self.assertEqual(ping["result"]["version"], "1.1.0")
+            self.assertEqual(ping["result"]["protocolVersion"], 2)
+            self.assertTrue(ping["result"]["capabilities"]["oneClickDownloads"])
             self.assertFalse(bad["ok"])
             self.assertIsNone(read_message(output))
             denied = subprocess.run([sys.executable, str(ROOT / "native-app" / "main.py"), "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/", "--state-dir", temp], input=b"", capture_output=True, timeout=10)

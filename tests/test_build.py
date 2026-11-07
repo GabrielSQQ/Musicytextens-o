@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import sys
 from unittest.mock import patch
 import zipfile
 
@@ -15,6 +16,10 @@ SPEC.loader.exec_module(FETCH)
 BUILD_SPEC = importlib.util.spec_from_file_location("build_windows", ROOT / "scripts" / "build_windows.py")
 BUILD = importlib.util.module_from_spec(BUILD_SPEC)
 BUILD_SPEC.loader.exec_module(BUILD)
+sys.path.insert(0, str(ROOT / "scripts"))
+INSTALL_SPEC = importlib.util.spec_from_file_location("install_tools", ROOT / "scripts" / "install_tools.py")
+INSTALL = importlib.util.module_from_spec(INSTALL_SPEC)
+INSTALL_SPEC.loader.exec_module(INSTALL)
 
 
 class DependencyBuildTests(unittest.TestCase):
@@ -50,6 +55,38 @@ class DependencyBuildTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaises(ValueError):
                 FETCH.download(artifact, Path(temporary))
+
+    def test_offline_bootstrap_refuses_missing_or_changed_bytes_without_network(self):
+        artifact = dict(name="fixture", url="https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp.exe", sha256="0" * 64, filename="fixture.exe", kind="file")
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch.object(FETCH.urllib.request, "urlopen", side_effect=AssertionError("offline extraction must not use network")):
+                with self.assertRaises(ValueError):
+                    FETCH.download(artifact, Path(temporary), offline=True)
+
+    def test_download_page_contains_pinned_hashes_and_versions(self):
+        lock = json.loads((ROOT / "installer" / "dependencies.lock.json").read_text())
+        script = BUILD.dependency_download_script(lock)
+        for item in lock["artifacts"]:
+            self.assertIn(item["url"], script)
+            self.assertIn(item["sha256"], script)
+        self.assertEqual(script.count("DownloadPage.Add("), len(lock["artifacts"]))
+
+    def test_dependency_removal_preserves_media_and_unrecorded_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            (folder / "ffmpeg.exe").write_bytes(b"owned")
+            (folder / "song.mp3").write_bytes(b"media")
+            (folder / "personal.txt").write_bytes(b"personal")
+            (folder / "licenses").mkdir()
+            (folder / "licenses" / "also-media.mp4").write_bytes(b"media2")
+            (folder / "licenses" / "LICENSE.txt").write_text("owned license")
+            (folder / ".installed-dependencies.json").write_text(json.dumps(["ffmpeg.exe", "song.mp3", "personal.txt", "licenses/also-media.mp4", "licenses/LICENSE.txt", "../outside.txt"]))
+            INSTALL.remove_installed_tools(folder)
+            self.assertFalse((folder / "ffmpeg.exe").exists())
+            self.assertFalse((folder / "licenses" / "LICENSE.txt").exists())
+            self.assertEqual((folder / "song.mp3").read_bytes(), b"media")
+            self.assertEqual((folder / "licenses" / "also-media.mp4").read_bytes(), b"media2")
+            self.assertTrue((folder / "personal.txt").exists())
 
     def test_extracts_only_known_tools_and_license(self):
         with tempfile.TemporaryDirectory() as temporary:

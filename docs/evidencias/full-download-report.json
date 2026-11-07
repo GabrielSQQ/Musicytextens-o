@@ -1,27 +1,94 @@
 {
   "ok": true,
-  "trustedContentButton": true,
+  "version": "1.1.0",
   "realExtension": true,
   "realNativeMessaging": true,
   "realYtDlpFfmpegAndFfprobe": true,
-  "popupClosedDuringProcessing": true,
+  "singleTrustedClickPerDownload": true,
+  "noYouTubeModal": true,
+  "pickerCallsOnlyInExplicitSettings": 1,
+  "folderSavedAfterPopupCloses": true,
+  "standingAuthorizationSavedOnce": true,
+  "sequentialDownloads": 3,
+  "popupClosedDuringDownloads": true,
+  "liveFormatChangeWithoutPageReload": true,
+  "unicodeAndSpaceDestination": true,
+  "settingsAndHistoryPersistAfterBrowserRestart": true,
   "localSyntheticSourceInjectedOnlyInTestHost": true,
   "nativeWindowsFolderDialogTested": false,
   "liveYouTubeTested": false,
-  "outputFile": "Fonte autorizada.mp3",
-  "probe": {
-    "programs": [],
-    "stream_groups": [],
-    "streams": [
-      {
-        "codec_name": "mp3",
-        "codec_type": "audio",
-        "bit_rate": "192000"
+  "outputs": [
+    {
+      "filename": "Canção autorizada.mp3",
+      "format": "mp3",
+      "requestedQuality": 320,
+      "actualHeight": null,
+      "resultNote": "",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "mp3",
+            "codec_type": "audio",
+            "bit_rate": "320000"
+          }
+        ],
+        "format": {
+          "duration": "1.332245",
+          "size": "54685"
+        }
       }
-    ],
-    "format": {
-      "duration": "2.037551",
-      "size": "49854"
+    },
+    {
+      "filename": "master.mp4",
+      "format": "mp4",
+      "requestedQuality": 720,
+      "actualHeight": 360,
+      "resultNote": "Salvo em 360p; 720p não estava disponível.",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "height": 360,
+            "bit_rate": "6892"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "bit_rate": "114788"
+          }
+        ],
+        "format": {
+          "duration": "1.322993",
+          "size": "22573"
+        }
+      }
+    },
+    {
+      "filename": "Segundo tom.mp3",
+      "format": "mp3",
+      "requestedQuality": 192,
+      "actualHeight": null,
+      "resultNote": "",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "mp3",
+            "codec_type": "audio",
+            "bit_rate": "192000"
+          }
+        ],
+        "format": {
+          "duration": "1.332245",
+          "size": "32911"
+        }
+      }
     }
-  }
+  ]
 }

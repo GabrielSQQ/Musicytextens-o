@@ -108,7 +108,7 @@ def main(argv=None):
                     if not isinstance(request_id, str) or not 1 <= len(request_id) <= 128:
                         raise ProtocolError("Identificador de solicitação inválido.")
                     command = message.get("type")
-                    if isinstance(command, str) and command in {"download", "pick_folder"}:
+                    if command == "pick_folder":
                         gui_requests.put(message)
                     else:
                         respond(message)

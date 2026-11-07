@@ -3,6 +3,7 @@ import base64
 import hashlib
 import json
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +49,14 @@ class DistributionTests(unittest.TestCase):
                 self.assertNotIn("/latest/", item["url"])
                 self.assertRegex(item["sha256"], r"^[0-9a-f]{64}$")
                 self.assertTrue(item["version"])
+
+    def test_extension_helper_and_installer_versions_match(self):
+        native = (ROOT / "native-app/downloader.py").read_text(encoding="utf-8")
+        installer = (ROOT / "installer/OperaMusicDownloader.iss").read_text(encoding="utf-8")
+        native_version = re.search(r'^VERSION = "([^"]+)"', native, re.M).group(1)
+        installer_version = re.search(r'^AppVersion=([^\r\n]+)', installer, re.M).group(1)
+        self.assertEqual(self.manifest["version"], native_version)
+        self.assertEqual(self.manifest["version"], installer_version)
 
 
 if __name__ == "__main__":

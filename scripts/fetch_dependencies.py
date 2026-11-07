@@ -11,11 +11,13 @@ import json
 from pathlib import Path, PurePosixPath
 import shutil
 import ssl
+import sys
+import tempfile
 import urllib.parse
 import urllib.request
 import zipfile
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
 MAX_DOWNLOAD = 600 * 1024 * 1024
 
 
@@ -27,7 +29,7 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def download(artifact: dict, cache: Path) -> Path:
+def download(artifact: dict, cache: Path, *, offline: bool = False) -> Path:
     url = urllib.parse.urlsplit(artifact["url"])
     approved_binary = url.hostname == "github.com" and url.path.startswith(("/yt-dlp/yt-dlp/releases/download/", "/denoland/deno/releases/download/", "/BtbN/FFmpeg-Builds/releases/download/"))
     approved_license = url.hostname == "raw.githubusercontent.com" and artifact["kind"] == "license" and url.path.startswith(("/yt-dlp/yt-dlp/", "/denoland/deno/"))
@@ -39,6 +41,8 @@ def download(artifact: dict, cache: Path) -> Path:
     target = cache / Path(artifact["filename"]).name
     if target.exists() and sha256(target) == expected:
         return target
+    if offline:
+        raise ValueError(f"Arquivo verificado ausente ou corrompido: {artifact['filename']}. Volte e tente baixar novamente.")
     target.unlink(missing_ok=True)
     temporary = target.with_suffix(target.suffix + ".partial")
     try:
@@ -60,11 +64,13 @@ def download(artifact: dict, cache: Path) -> Path:
         temporary.unlink(missing_ok=True)
 
 
-def extract_tool(archive: Path, artifact: dict, tools: Path, licenses: Path) -> None:
+def extract_tool(archive: Path, artifact: dict, tools: Path, licenses: Path) -> list[Path]:
     if artifact["kind"] in {"file", "license"}:
         destination = licenses if artifact["kind"] == "license" else tools
-        shutil.copy2(archive, destination / Path(artifact["target"]).name)
-        return
+        target = destination / Path(artifact["target"]).name
+        shutil.copy2(archive, target)
+        return [target]
+    written = []
     with zipfile.ZipFile(archive) as zipped:
         # Copy only known binaries; never extract an arbitrary upstream path.
         for suffix, target in artifact["members"].items():
@@ -73,6 +79,7 @@ def extract_tool(archive: Path, artifact: dict, tools: Path, licenses: Path) -> 
                 raise ValueError(f"Conteúdo inesperado no ZIP de {artifact['name']}: {suffix}")
             with zipped.open(matches[0]) as source, (tools / Path(target).name).open("wb") as destination:
                 shutil.copyfileobj(source, destination)
+            written.append(tools / Path(target).name)
         for entry in zipped.infolist():
             name = PurePosixPath(entry.filename)
             if entry.is_dir() or entry.file_size > 8 * 1024 * 1024:
@@ -87,6 +94,46 @@ def extract_tool(archive: Path, artifact: dict, tools: Path, licenses: Path) -> 
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 with zipped.open(entry) as source, dest.open("wb") as output:
                     shutil.copyfileobj(source, output)
+                written.append(dest)
+    return written
+
+
+def install_from_cache(lock: dict, destination: Path, cache: Path, *, offline=False) -> list[Path]:
+    destination.mkdir(parents=True, exist_ok=True)
+    cache.mkdir(parents=True, exist_ok=True)
+    # Verify/extract every artifact before replacing any installed executable.
+    # Record owned paths before the final copy so interrupted installation can
+    # still be removed safely without scanning user files.
+    with tempfile.TemporaryDirectory(prefix=".omd-tools-", dir=destination.parent) as temporary:
+        staging = Path(temporary)
+        licenses = staging / "licenses"
+        licenses.mkdir()
+        written = []
+        for item in lock["artifacts"]:
+            print(f"Verificando {item['name']} {item['version']}...", flush=True)
+            archive = download(item, cache, offline=offline)
+            written.extend(extract_tool(archive, item, staging, licenses))
+        lock_path = licenses / "dependencies.lock.json"
+        lock_path.write_text(json.dumps(lock, ensure_ascii=True, indent=2), encoding="utf-8")
+        written.append(lock_path)
+        names = [path.relative_to(staging).as_posix() for path in written]
+        record = destination / ".installed-dependencies.json"
+        try:
+            previous = json.loads(record.read_text(encoding="utf-8"))
+            if isinstance(previous, list):
+                names = list(dict.fromkeys([item for item in previous if isinstance(item, str)] + names))
+        except (OSError, ValueError):
+            pass
+        pending_record = destination / ".installed-dependencies.json.tmp"
+        pending_record.write_text(json.dumps(names, ensure_ascii=True, indent=2), encoding="utf-8")
+        pending_record.replace(record)
+        final_paths = []
+        for source in written:
+            target = destination / source.relative_to(staging)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+            final_paths.append(target)
+    return final_paths + [record]
 
 
 def main() -> int:
@@ -104,15 +151,7 @@ def main() -> int:
                 raise ValueError("Dependência não fixada")
         print("Lock: versões explícitas e SHA256 presentes.")
         return 0
-    arguments.cache.mkdir(parents=True, exist_ok=True)
-    arguments.destination.mkdir(parents=True, exist_ok=True)
-    licenses = arguments.destination / "licenses"
-    licenses.mkdir(exist_ok=True)
-    for item in lock["artifacts"]:
-        print(f"Verificando {item['name']} {item['version']}...")
-        archive = download(item, arguments.cache)
-        extract_tool(archive, item, arguments.destination, licenses)
-    shutil.copy2(ROOT / "installer" / "dependencies.lock.json", licenses / "dependencies.lock.json")
+    install_from_cache(lock, arguments.destination, arguments.cache)
     print("Dependências verificadas e preparadas.")
     return 0
 

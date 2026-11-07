@@ -16,7 +16,9 @@ import time
 import unicodedata
 from urllib.parse import parse_qs, urlsplit
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
+PROTOCOL_VERSION = 2
+CAPABILITIES = {"oneClickDownloads": True}
 VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 TERMINAL = {"completed", "error", "cancelled"}
 ACTIVE = {"queued", "preparing", "downloading", "converting"}
@@ -257,7 +259,7 @@ class Runner:
             format_args = ["-f", "bestaudio[acodec^=opus]/bestaudio/best", "-x", "--audio-format", "opus", "--audio-quality", "0"]
         else:
             # Convert codecs when necessary, so MP4 is playable in default Windows players.
-            format_args = ["-f", f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]", "--merge-output-format", "mkv", "--remux-video", "mkv"]
+            format_args = ["-f", f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/bestvideo+bestaudio/best", "--merge-output-format", "mkv", "--remux-video", "mkv"]
         with tempfile.TemporaryDirectory(prefix=".omd-", dir=folder) as temp:
             temp_path = Path(temp)
             args = self.common() + ["--newline", "--progress", "--progress-template", "download:OMD_PROGRESS:%(progress)j", "--print", "after_move:OMD_FILE:%(filepath)s", "--no-quiet", "--no-simulate", "--paths", str(temp_path), "--output", "media.%(ext)s", "--add-metadata"] + format_args
@@ -297,14 +299,25 @@ class Runner:
                 raise DownloadError("O arquivo final não foi gerado corretamente.")
             if fmt == "mp4":
                 self.emit({"status": "converting", "progress": 99, "speed": None, "eta": None})
+                source_streams = self.verify_media(source, fmt)
+                source_height = next(s.get("height") for s in source_streams if s.get("codec_type") == "video")
                 final = temp_path / "media-final.mp4"
-                self.run([self.tools.paths["ffmpeg"], "-hide_banner", "-loglevel", "error", "-i", str(source), "-map", "0:v:0", "-map", "0:a:0", "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(final)], on_line=lambda _: None, timeout=12 * 60 * 60)
+                self.run([self.tools.paths["ffmpeg"], "-hide_banner", "-loglevel", "error", "-i", str(source), "-map", "0:v:0", "-map", "0:a:0", "-vf", f"scale=-2:'trunc(min(ih,{quality})/2)*2'", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "fast", "-crf", "20", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(final)], on_line=lambda _: None, timeout=12 * 60 * 60)
                 source = final
-            self.verify_media(source, fmt)
+            streams = self.verify_media(source, fmt)
+            if fmt == "mp4":
+                height = next(s.get("height") for s in streams if s.get("codec_type") == "video")
+                if type(height) is int and height > 0:
+                    note = f"Salvo em {height}p."
+                    if height < quality:
+                        note = f"Salvo em {height}p; {quality}p não estava disponível."
+                    elif type(source_height) is int and source_height > quality:
+                        note = f"Salvo em {height}p; resolução ajustada ao limite configurado de {quality}p."
+                    self.emit({"actualHeight": height, "resultNote": note})
             return self.publish(source, folder, media_title(info), fmt)
 
     def verify_media(self, path: Path, fmt: str):
-        data = self.run([self.tools.paths["ffprobe"], "-v", "error", "-show_entries", "stream=codec_type,codec_name", "-of", "json", str(path)], timeout=60)
+        data = self.run([self.tools.paths["ffprobe"], "-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height", "-of", "json", str(path)], timeout=60)
         try:
             streams = json.loads(data)["streams"]
             if not any(s.get("codec_type") == "audio" for s in streams):
@@ -315,6 +328,7 @@ class Runner:
                 raise ValueError()
         except (KeyError, ValueError, TypeError) as exc:
             raise DownloadError("Não foi possível validar a mídia gerada.") from exc
+        return streams
 
     def publish(self, source: Path, folder: Path, title: str, fmt: str) -> Path:
         max_units = 130

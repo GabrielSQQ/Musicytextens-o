@@ -19,6 +19,7 @@ import venv
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "work" / "windows-build"
+VERSION = "1.1.0"
 
 
 def run(arguments: list[str], **kwargs) -> subprocess.CompletedProcess:
@@ -30,6 +31,18 @@ def stable_extension_id(public_key: str) -> str:
     """Chromium extension IDs encode the first 128 bits of the SPKI hash."""
     digest = hashlib.sha256(base64.b64decode(public_key, validate=True)).hexdigest()[:32]
     return "".join(chr(ord("a") + int(character, 16)) for character in digest)
+
+
+def dependency_download_script(lock: dict) -> str:
+    lines = []
+    for item in lock["artifacts"]:
+        if not re.fullmatch(r"[a-zA-Z0-9_.-]+", item["filename"]):
+            raise ValueError("Nome inseguro de dependência no lock")
+        if not re.fullmatch(r"[a-f0-9]{64}", item["sha256"]) or not item["url"].startswith("https://") or "/latest/" in item["url"]:
+            raise ValueError("Dependência não fixada no lock")
+        values = [item[key].replace("'", "''") for key in ("url", "filename", "sha256")]
+        lines.append("  DownloadPage.Add(" + ", ".join("'" + value + "'" for value in values) + ");")
+    return "\n".join(lines) + "\n"
 
 
 def main() -> int:
@@ -48,6 +61,8 @@ def main() -> int:
         raise ValueError("A chave pública estável não foi incluída no manifesto da extensão")
     if stable_extension_id(manifest["key"]) != extension_id:
         raise ValueError("O ID de extensão não corresponde à chave pública do manifesto")
+    if manifest["version"] != VERSION:
+        raise ValueError("A versão da extensão não corresponde ao instalador")
     iscc = args.iscc or Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Inno Setup 6" / "ISCC.exe"
     if not iscc.is_file():
         found = shutil.which("ISCC.exe")
@@ -73,12 +88,22 @@ def main() -> int:
     shutil.copy2(ROOT / "installer" / "THIRD-PARTY-NOTICES.txt", stage / "THIRD-PARTY-NOTICES.txt")
     if (ROOT / "LICENSE").is_file():
         shutil.copy2(ROOT / "LICENSE", stage / "LICENSE.txt")
-    licenses = stage / "tools" / "licenses"
+    # Only our host/Python runtime licenses are redistributed inside Setup.
+    # Upstream media tools will be fetched by the wizard from official URLs.
+    licenses = stage / "licenses"
+    licenses.mkdir(exist_ok=True)
     base_python = Path(sys.base_prefix)
     for license_file in (base_python / "LICENSE.txt", base_python / "LICENSE"):
         if license_file.is_file():
             shutil.copy2(license_file, licenses / "Python-LICENSE.txt")
             break
+    tcl_root = base_python / "tcl"
+    if tcl_root.is_dir():
+        for source in tcl_root.rglob("*"):
+            if source.is_file() and source.name.lower().startswith(("license", "copying")):
+                target = licenses / "Tcl-Tk" / source.relative_to(tcl_root)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
     # Preserve the licenses of the Python packaging components/bootloader too.
     site_packages = venv_path / "Lib" / "site-packages"
     for pattern in ("**/LICENSE*", "**/COPYING*"):
@@ -90,12 +115,25 @@ def main() -> int:
     host = stage / "OperaMusicDownloaderHost.exe"
     result = run([host, "--self-test"], capture_output=True, text=True, encoding="utf-8")
     report = json.loads(result.stdout)
+    if report.get("version") != VERSION or not report.get("ok"):
+        raise RuntimeError("Versão inesperada ou falha no self-test do host")
     (stage / "build-self-test.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     # The native test must return a nonzero exit code when a required tool fails.
     print("Self-test do executável concluído.", flush=True)
+    # Critical distribution boundary: no FFmpeg/yt-dlp/Deno binaries in Setup.
+    # Their upstream installers/licenses are independently obtained by end users.
+    shutil.rmtree(stage / "tools")
+    bootstrap_dist = WORK / "bootstrap-dist"
+    run([python, "-m", "PyInstaller", "--noconfirm", "--clean", "--console", "--onedir", "--name", "OperaMusicDownloaderTools", "--distpath", bootstrap_dist, "--workpath", WORK / "bootstrap-build", "--specpath", WORK, "--add-data", str(ROOT / "installer" / "dependencies.lock.json") + ";installer", ROOT / "scripts" / "install_tools.py"])
+    shutil.copytree(bootstrap_dist / "OperaMusicDownloaderTools", stage / "maintenance", dirs_exist_ok=True)
+    if any(path.name.lower() in {"ffmpeg.exe", "ffprobe.exe", "yt-dlp.exe", "deno.exe"} for path in stage.rglob("*")):
+        raise RuntimeError("Dependência externa encontrada no payload; publicação bloqueada")
+    lock = json.loads((ROOT / "installer" / "dependencies.lock.json").read_text(encoding="utf-8"))
+    download_include = WORK / "dependency-downloads.iss"
+    download_include.write_text(dependency_download_script(lock), encoding="utf-8")
     output = ROOT / "dist"
     output.mkdir(exist_ok=True)
-    run([iscc, f"/DExtensionId={extension_id}", f"/DStageDir={stage}", f"/O{output}", ROOT / "installer" / "OperaMusicDownloader.iss"])
+    run([iscc, f"/DExtensionId={extension_id}", f"/DStageDir={stage}", f"/DDependencyScript={download_include}", f"/O{output}", ROOT / "installer" / "OperaMusicDownloader.iss"])
     setup = output / "OperaMusicDownloader-Setup.exe"
     if not setup.is_file():
         raise RuntimeError("O compilador não gerou o instalador esperado")

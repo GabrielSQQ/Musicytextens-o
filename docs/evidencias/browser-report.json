@@ -3,51 +3,71 @@
   "browser": "151.0.7922.34",
   "extension_id": "kinpjcjipphcbboncbjmodfiiblgfaoo",
   "synthetic_pages": true,
+  "media_download_tested": false,
+  "native_host_offline": true,
+  "runtime_test_double": false,
   "live_youtube_tested": false,
   "opera_gx_tested": false,
-  "tests_run": 8,
+  "windows_tested": false,
+  "tests_run": 11,
   "failures": 0,
   "errors": 0,
-  "skipped": 0,
+  "skipped": 3,
   "tests": [
     {
       "test": "test_dynamic_scroll_mutations_do_not_duplicate_buttons",
       "mode": "extension",
       "passed": true,
       "skipped": false,
-      "seconds": 1.19,
+      "seconds": 0.826,
       "page_errors": []
     },
     {
-      "test": "test_extension_pages_load_and_offline_state_is_clear",
+      "test": "test_error_messages_retry_and_old_host_guidance",
       "mode": "extension",
-      "passed": true,
-      "skipped": false,
-      "seconds": 0.584,
+      "passed": false,
+      "skipped": true,
+      "seconds": 0.041,
       "page_errors": []
     },
     {
-      "test": "test_modal_formats_authorization_and_safe_title",
+      "test": "test_live_format_progress_duplicate_and_terminal_reset",
       "mode": "extension",
-      "passed": true,
-      "skipped": false,
-      "seconds": 0.426,
+      "passed": false,
+      "skipped": true,
+      "seconds": 0.071,
       "page_errors": []
     },
     {
-      "test": "test_music_list_injects_supported_track",
+      "test": "test_music_list_one_click_injects_supported_track",
       "mode": "extension",
       "passed": true,
       "skipped": false,
-      "seconds": 0.255,
+      "seconds": 0.276,
       "page_errors": []
     },
     {
-      "test": "test_recycled_renderer_reads_current_video",
+      "test": "test_popup_autosaves_preferences_explicit_picker_and_history_scroll",
+      "mode": "extension",
+      "passed": false,
+      "skipped": true,
+      "seconds": 0.045,
+      "page_errors": []
+    },
+    {
+      "test": "test_popup_central_settings_defaults_and_narrow_layout",
       "mode": "extension",
       "passed": true,
       "skipped": false,
-      "seconds": 0.775,
+      "seconds": 0.375,
+      "page_errors": []
+    },
+    {
+      "test": "test_recycled_renderer_reads_current_metadata_without_modal",
+      "mode": "extension",
+      "passed": true,
+      "skipped": false,
+      "seconds": 0.57,
       "page_errors": []
     },
     {
@@ -55,23 +75,31 @@
       "mode": "extension",
       "passed": true,
       "skipped": false,
-      "seconds": 0.177,
+      "seconds": 0.135,
       "page_errors": []
     },
     {
-      "test": "test_synthetic_page_click_cannot_authorize_download",
+      "test": "test_synthetic_page_click_cannot_start_download",
       "mode": "extension",
       "passed": true,
       "skipped": false,
-      "seconds": 0.674,
+      "seconds": 0.362,
       "page_errors": []
     },
     {
-      "test": "test_watch_and_spa_navigation_update_video",
+      "test": "test_trusted_one_click_uses_metadata_only_and_safe_title",
       "mode": "extension",
       "passed": true,
       "skipped": false,
-      "seconds": 0.863,
+      "seconds": 0.281,
+      "page_errors": []
+    },
+    {
+      "test": "test_watch_and_spa_navigation_update_metadata",
+      "mode": "extension",
+      "passed": true,
+      "skipped": false,
+      "seconds": 0.506,
       "page_errors": []
     }
   ]

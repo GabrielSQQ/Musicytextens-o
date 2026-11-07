@@ -4,29 +4,43 @@ test_broken_stdout_with_open_stdin_exits_cleanly (test_broken_pipe.BrokenPipeTes
 test_partial_writes_produce_one_complete_frame (test_broken_pipe.BrokenPipeTests.test_partial_writes_produce_one_complete_frame) ... ok
 test_zero_or_none_write_closes_writer (test_broken_pipe.BrokenPipeTests.test_zero_or_none_write_closes_writer) ... ok
 test_cached_hash_must_match (test_build.DependencyBuildTests.test_cached_hash_must_match) ... ok
+test_dependency_removal_preserves_media_and_unrecorded_files (test_build.DependencyBuildTests.test_dependency_removal_preserves_media_and_unrecorded_files) ... ok
+test_download_page_contains_pinned_hashes_and_versions (test_build.DependencyBuildTests.test_download_page_contains_pinned_hashes_and_versions) ... ok
 test_extension_id_matches_manifest_public_key (test_build.DependencyBuildTests.test_extension_id_matches_manifest_public_key) ... ok
 test_extracts_only_known_tools_and_license (test_build.DependencyBuildTests.test_extracts_only_known_tools_and_license) ... ok
 test_lock_uses_immutable_version_urls_and_hashes (test_build.DependencyBuildTests.test_lock_uses_immutable_version_urls_and_hashes) ... ok
+test_offline_bootstrap_refuses_missing_or_changed_bytes_without_network (test_build.DependencyBuildTests.test_offline_bootstrap_refuses_missing_or_changed_bytes_without_network) ... ok
 test_uninstaller_does_not_recursively_delete_preferences_folder (test_build.DependencyBuildTests.test_uninstaller_does_not_recursively_delete_preferences_folder) ... ok
 test_url_source_restricted (test_build.DependencyBuildTests.test_url_source_restricted) ... ok
 test_zip_traversal_is_rejected (test_build.DependencyBuildTests.test_zip_traversal_is_rejected) ... ok
 test_browser_privileges_stay_scoped (test_distribution.DistributionTests.test_browser_privileges_stay_scoped) ... ok
 test_dependency_lock_requires_pinned_https_hashes (test_distribution.DistributionTests.test_dependency_lock_requires_pinned_https_hashes) ... ok
 test_every_declared_resource_exists (test_distribution.DistributionTests.test_every_declared_resource_exists) ... ok
+test_extension_helper_and_installer_versions_match (test_distribution.DistributionTests.test_extension_helper_and_installer_versions_match) ... ok
 test_extension_identity_is_fixed (test_distribution.DistributionTests.test_extension_identity_is_fixed) ... ok
 test_m4a_and_opus (test_media_e2e.RealMediaTests.test_m4a_and_opus) ... ok
 test_mp3_all_bitrates_and_metadata (test_media_e2e.RealMediaTests.test_mp3_all_bitrates_and_metadata) ... ok
 test_mp4_limits_and_playable_codecs (test_media_e2e.RealMediaTests.test_mp4_limits_and_playable_codecs) ... ok
+test_mp4_missing_quality_reports_lower_available_resolution (test_media_e2e.RealMediaTests.test_mp4_missing_quality_reports_lower_available_resolution) ... ok
+test_mp4_only_higher_resolution_is_scaled_to_cap_and_reported (test_media_e2e.RealMediaTests.test_mp4_only_higher_resolution_is_scaled_to_cap_and_reported) ... ok
 test_concurrent_events_do_not_interleave (test_native.FramingTests.test_concurrent_events_do_not_interleave) ... ok
 test_multibyte_frame_byte_length_and_roundtrip (test_native.FramingTests.test_multibyte_frame_byte_length_and_roundtrip) ... ok
 test_truncated_oversized_and_nonobject_messages (test_native.FramingTests.test_truncated_oversized_and_nonobject_messages) ... ok
 test_ping_and_cancel_respond_while_folder_picker_is_blocked (test_native.HostProcessTests.test_ping_and_cancel_respond_while_folder_picker_is_blocked) ... ok
 test_real_host_native_framed_ping_and_origin_rejection (test_native.HostProcessTests.test_real_host_native_framed_ping_and_origin_rejection) ... ok
+test_invalid_preferences_default_individually_without_discarding_path_history (test_native.MigrationTests.test_invalid_preferences_default_individually_without_discarding_path_history) ... ok
+test_known_folder_is_used_only_for_first_unconfigured_install (test_native.MigrationTests.test_known_folder_is_used_only_for_first_unconfigured_install) ... ok
+test_legacy_default_precedes_last_and_both_persist_after_restart (test_native.MigrationTests.test_legacy_default_precedes_last_and_both_persist_after_restart) ... ok
+test_legacy_last_folder_is_migrated_even_if_currently_disconnected (test_native.MigrationTests.test_legacy_last_folder_is_migrated_even_if_currently_disconnected) ... ok
 test_collision_preserves_existing_file (test_native.PublicationTests.test_collision_preserves_existing_file) ... ok
 test_copy_fallback_cancellation_removes_owned_partial (test_native.PublicationTests.test_copy_fallback_cancellation_removes_owned_partial) ... ok
 test_real_subprocess_cancellation (test_native.PublicationTests.test_real_subprocess_cancellation) ... ok
 test_authorization_duplicate_active_cancel_retry_and_complete (test_native.QueueTests.test_authorization_duplicate_active_cancel_retry_and_complete) ... ok
+test_explicit_picker_commits_folder_without_followup_popup_request (test_native.QueueTests.test_explicit_picker_commits_folder_without_followup_popup_request) ... ok
+test_failed_persistence_rolls_back_preferences_and_queue (test_native.QueueTests.test_failed_persistence_rolls_back_preferences_and_queue) ... ok
 test_interrupted_jobs_become_retryable_errors_on_restart (test_native.QueueTests.test_interrupted_jobs_become_retryable_errors_on_restart) ... ok
+test_invalid_configured_folder_never_opens_picker_or_falls_back (test_native.QueueTests.test_invalid_configured_folder_never_opens_picker_or_falls_back) ... ok
+test_new_preferences_affect_only_new_jobs_and_payload_cannot_override (test_native.QueueTests.test_new_preferences_affect_only_new_jobs_and_payload_cannot_override) ... ok
 test_queued_cancel_does_not_start_or_remove_completed_files (test_native.QueueTests.test_queued_cancel_does_not_start_or_remove_completed_files) ... ok
 test_settings_persist_and_invalid_path_is_rejected (test_native.QueueTests.test_settings_persist_and_invalid_path_is_rejected) ... ok
 test_only_canonical_video_urls (test_native.ValidationTests.test_only_canonical_video_urls) ... ok
@@ -34,34 +48,40 @@ test_safe_unicode_reserved_and_long_filenames (test_native.ValidationTests.test_
 test_browser_closes_before_native_picker_returns (test_shutdown.ShutdownTests.test_browser_closes_before_native_picker_returns) ... ok
 
 ----------------------------------------------------------------------
-Ran 32 tests in 20.508s
+Ran 46 tests in 25.288s
 
 OK
 
-> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --check /workspace/output/OperaMusicDownloader/extension/background.js
+> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --check /workspace/work/github-delivery/extension/background.js
 
-> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --check /workspace/output/OperaMusicDownloader/extension/content.js
+> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --check /workspace/work/github-delivery/extension/content.js
 
-> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --check /workspace/output/OperaMusicDownloader/extension/options.js
+> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --check /workspace/work/github-delivery/extension/options.js
 
-> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --check /workspace/output/OperaMusicDownloader/extension/popup.js
+> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --check /workspace/work/github-delivery/extension/popup.js
 
-> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --check /workspace/output/OperaMusicDownloader/extension/shared.js
+> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --check /workspace/work/github-delivery/extension/shared.js
 
-> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --test /workspace/output/OperaMusicDownloader/tests/test_extension_security.mjs
-✔ only canonical supported YouTube video URLs are accepted (1.96432ms)
-✔ download payload requires explicit authorization and validates format (0.639076ms)
-✔ thumbnail and sender URL checks restrict unrelated origins (0.145307ms)
-✔ service worker prevents content configuration and filesystem commands (1.498479ms)
-✔ content state never reveals local paths or other download history (1.436453ms)
-✔ trusted extension pages receive settings and can select native folders (0.944992ms)
-ℹ tests 6
+> /opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node --test /workspace/work/github-delivery/tests/test_extension_security.mjs
+✔ only supported HTTPS YouTube video URLs are accepted (1.162278ms)
+✔ download requests contain metadata only; caller cannot set prefs or authorization (0.948869ms)
+✔ settings validate independent qualities and booleans, ignoring unsupported authority fields (0.252027ms)
+✔ worker locks full snapshots to trusted storage before reading or writing (2.353599ms)
+✔ content cannot edit prefs, consent, native directories or arbitrary job IDs (1.065273ms)
+✔ cached v2 state cannot authorize sending downloads or settings to a live old host (4.15822ms)
+✔ one click passes metadata only to a live compatible host without picker (1.755793ms)
+✔ live tab messages contain only that document owned jobs, sanitized notes/errors and prefs (8.873675ms)
+✔ subscription ownership survives service worker restart but remains document-bound (1.314921ms)
+✔ raw native failures never expose paths to content, while folder errors stay actionable (2.220313ms)
+✔ popup settings and explicit picker remain privileged and preserve native state (1.17613ms)
+✔ port loss after live capability response cannot reconnect and forward an unverified download (1.14719ms)
+ℹ tests 12
 ℹ suites 0
-ℹ pass 6
+ℹ pass 12
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 77.853685
+ℹ duration_ms 93.551094
 
 Verificações solicitadas concluídas.

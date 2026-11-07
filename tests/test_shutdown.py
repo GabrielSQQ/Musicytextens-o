@@ -1,4 +1,4 @@
-"""A browser closing during folder selection must not enqueue orphaned work."""
+"""A browser closing during explicit folder configuration must not save afterward."""
 from pathlib import Path
 import sys
 import tempfile
@@ -30,11 +30,11 @@ class ShutdownTests(unittest.TestCase):
                 released.wait(timeout=3)
                 return str(folder)
 
-            app = Application(folder / "state", tools=NoToolsNeeded(), picker=picker)
+            app = Application(folder / "state", tools=NoToolsNeeded(), picker=picker, music_folder=lambda: "")
 
             def request():
                 try:
-                    app.enqueue({"url": "https://youtu.be/abcdefghijk", "format": "mp3", "quality": 192, "authorized": True})
+                    app.dispatch("pick_folder", {})
                 except Exception as exc:
                     errors.append(exc)
 
@@ -46,6 +46,9 @@ class ShutdownTests(unittest.TestCase):
             thread.join(timeout=3)
             self.assertFalse(thread.is_alive())
             self.assertEqual(app.snapshot()["jobs"], [])
+            self.assertEqual(app.snapshot()["settings"]["defaultFolder"], "")
             self.assertEqual(len(errors), 1)
             self.assertIsInstance(errors[0], ValueError)
             self.assertEqual(list(folder.glob("*.mp3")), [])
+            with self.assertRaises(ValueError):
+                app.enqueue({"url": "https://youtu.be/abcdefghijk"})

@@ -46,6 +46,9 @@ class RealMediaTests(unittest.TestCase):
             subprocess.run([ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", f"color=c=0xff3158:s={width}x{height}:r=12:d=1.2", "-f", "lavfi", "-i", "sine=frequency=440:duration=1.2", "-c:v", "libx264", "-threads", "2", "-preset", "ultrafast", "-c:a", "aac", "-shortest", "-f", "hls", "-hls_time", "1", "-hls_list_size", "0", str(cls.source / filename)], check=True, timeout=30)
             master.extend([f'#EXT-X-STREAM-INF:BANDWIDTH={height * 2000},RESOLUTION={width}x{height},CODECS="avc1.42c028,mp4a.40.2"', filename])
         (cls.source / "master.m3u8").write_text("\n".join(master) + "\n", encoding="utf-8")
+        for label, height in (("low", 360), ("high", 720)):
+            width = 640 if height == 360 else 1280
+            (cls.source / f"master-{label}.m3u8").write_text(f'#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH={height * 2000},RESOLUTION={width}x{height},CODECS="avc1.42c028,mp4a.40.2"\nrendition-{height}.m3u8\n', encoding="utf-8")
         cls.server = ThreadingHTTPServer(("127.0.0.1", 0), partial(QuietHTTP, directory=str(cls.source)))
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
@@ -74,6 +77,11 @@ class RealMediaTests(unittest.TestCase):
         self.assertGreater(float(data["format"]["duration"]), 0.5)
         self.assertTrue(any(u.get("status") == "downloading" for u in updates))
         self.assertTrue(any(u.get("status") == "converting" for u in updates))
+        if fmt == "mp4":
+            actual = next(s["height"] for s in data["streams"] if s["codec_type"] == "video")
+            self.assertEqual(next(u["actualHeight"] for u in updates if "actualHeight" in u), actual)
+            self.assertIn(f"{actual}p", next(u["resultNote"] for u in updates if "resultNote" in u))
+        self.last_updates = updates
         return path, data
 
     def test_mp3_all_bitrates_and_metadata(self):
@@ -97,8 +105,19 @@ class RealMediaTests(unittest.TestCase):
                 _, data = self.run_media("mp4", height, "master.m3u8")
                 video = next(s for s in data["streams"] if s["codec_type"] == "video")
                 self.assertEqual(video["codec_name"], "h264")
+                self.assertEqual(video["pix_fmt"], "yuv420p")
                 self.assertEqual(video["height"], height)
                 self.assertEqual(next(s for s in data["streams"] if s["codec_type"] == "audio")["codec_name"], "aac")
+
+    def test_mp4_missing_quality_reports_lower_available_resolution(self):
+        _, data = self.run_media("mp4", 1080, "master-low.m3u8")
+        self.assertEqual(next(s["height"] for s in data["streams"] if s["codec_type"] == "video"), 360)
+        self.assertIn("1080p não estava disponível", next(u["resultNote"] for u in self.last_updates if "resultNote" in u))
+
+    def test_mp4_only_higher_resolution_is_scaled_to_cap_and_reported(self):
+        _, data = self.run_media("mp4", 360, "master-high.m3u8")
+        self.assertEqual(next(s["height"] for s in data["streams"] if s["codec_type"] == "video"), 360)
+        self.assertIn("resolução ajustada", next(u["resultNote"] for u in self.last_updates if "resultNote" in u))
 
 
 if __name__ == "__main__":

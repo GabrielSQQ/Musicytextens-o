@@ -25,12 +25,20 @@ def main():
         parser.error("Este teste isolado usa o registro Linux; valide o instalador no Windows separadamente.")
     extension = ROOT / "extension"
     extension_id = (extension / "extension-id.txt").read_text().strip()
+    expected_version = json.loads((extension / "manifest.json").read_text())["version"]
     with tempfile.TemporaryDirectory(prefix="omd-native-browser-") as temporary:
         base = Path(temporary)
         config = base / "config"
         data = base / "state"
         media = base / "media"
         media.mkdir()
+        old_media = media / "Mídia anterior.mp3"
+        old_media.write_bytes(b"Historical file fixture; never converted or deleted by this test")
+        data.mkdir()
+        (data / "state.json").write_text(json.dumps({
+            "settings": {"folderMode":"last", "defaultFolder":"", "lastFolder":str(media), "openFolder":False},
+            "jobs": [{"id":"legacy-completed", "url":"https://www.youtube.com/watch?v=abcdefghijk", "title":"Histórico anterior", "status":"completed", "format":"mp3", "quality":192, "path":str(old_media)}]
+        }), encoding="utf-8")
         wrapper = base / "native-host"
         wrapper.write_text("#!/bin/sh\nexec " + shlex.quote(sys.executable) + " " + shlex.quote(str(ROOT / "native-app/main.py")) + ' "$@" --state-dir ' + shlex.quote(str(data)) + "\n", encoding="utf-8")
         wrapper.chmod(0o700)
@@ -57,16 +65,22 @@ def main():
                 assert response["ok"], response
                 return response["result"]
 
-            assert request("ping")["version"] == "1.0.0"
+            ping = request("ping")
+            assert ping["version"] == expected_version
+            assert ping["protocolVersion"] == 2 and ping["capabilities"]["oneClickDownloads"]
             state = request("get_state")
             assert state["connection"]["connected"]
-            assert state["jobs"] == []
-            request("settings", {"folderMode": "default", "defaultFolder": str(media), "openFolder": False})
+            assert len(state["jobs"]) == 1 and state["jobs"][0]["id"] == "legacy-completed"
+            assert state["settings"]["defaultFolder"] == str(media)
+            assert state["settings"]["mp3Quality"] == 320 and state["settings"]["mp4Quality"] == 720
+            assert state["settings"]["authorizedDownloads"] is False
+            request("settings", {"defaultFolder": str(media), "openFolder": False, "defaultFormat":"mp4", "mp3Quality":320, "mp4Quality":720, "authorizedDownloads":True})
             assert request("get_state")["settings"]["defaultFolder"] == str(media)
             bad = page.evaluate("m => chrome.runtime.sendMessage(m)", {"type": "download", "payload": {"url": "http://127.0.0.1/private.wav", "format": "mp3", "quality": 192, "authorized": True}})
             assert not bad["ok"]
-            assert request("get_state")["jobs"] == []
+            assert len(request("get_state")["jobs"]) == 1
             request("clear_history")
+            assert old_media.exists()
             context.close()
 
             # Native process exits on EOF. The saved settings survive new browser/host.
@@ -81,8 +95,12 @@ def main():
             state = request("get_state")
             assert state["settings"]["folderMode"] == "default"
             assert state["settings"]["defaultFolder"] == str(media)
+            assert state["settings"]["defaultFormat"] == "mp4"
+            assert state["settings"]["mp3Quality"] == 320 and state["settings"]["mp4Quality"] == 720
+            assert state["settings"]["authorizedDownloads"] is True
+            assert old_media.exists()
             context.close()
-        print(json.dumps({"ok": True, "realNativeMessaging": True, "fixedExtensionId": extension_id, "settingsPersistedAcrossBrowserRestart": True, "nonYouTubeUrlRejected": True}, ensure_ascii=False))
+        print(json.dumps({"ok": True, "version":expected_version, "realNativeMessaging": True, "fixedExtensionId": extension_id, "protocolVersion":2, "legacyFolderMigrated":True, "legacyHistoryPreservedUntilExplicitClear":True, "previousMediaPreserved":True, "settingsPersistedAcrossBrowserRestart": True, "formatAndBothQualitiesAndConsentPersisted":True, "nonYouTubeUrlRejected": True}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

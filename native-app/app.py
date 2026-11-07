@@ -13,9 +13,40 @@ import threading
 import time
 import uuid
 
-from downloader import ACTIVE, TERMINAL, VERSION, Cancelled, Runner, Tools, directory, process_options, validate_url
+from downloader import ACTIVE, TERMINAL, VERSION, PROTOCOL_VERSION, CAPABILITIES, Cancelled, Runner, Tools, directory, process_options, validate_url
 
-DEFAULT_SETTINGS = {"folderMode": "ask", "defaultFolder": "", "lastFolder": "", "openFolder": False}
+DEFAULT_SETTINGS = {"folderMode": "default", "defaultFolder": "", "lastFolder": "", "openFolder": False, "defaultFormat": "mp3", "mp3Quality": 320, "mp4Quality": 720, "authorizedDownloads": False}
+FOLDER_ERROR = "Configure uma pasta de destino na extensão."
+CONSENT_ERROR = "Confirme na extensão que você tem autorização para baixar o conteúdo."
+
+
+def known_music_directory():
+    """Resolve the actual Windows Known Folder, including redirected Music folders."""
+    if os.name != "nt":
+        return ""
+    import ctypes
+    from ctypes import wintypes
+
+    class GUID(ctypes.Structure):
+        _fields_ = [("Data1", wintypes.DWORD), ("Data2", wintypes.WORD), ("Data3", wintypes.WORD), ("Data4", ctypes.c_ubyte * 8)]
+
+    folder_id = GUID.from_buffer_copy(uuid.UUID("4BD8D571-6D19-48D3-BE97-422220080E43").bytes_le)
+    shell = ctypes.WinDLL("shell32", use_last_error=True)
+    ole = ctypes.WinDLL("ole32", use_last_error=True)
+    shell.SHGetKnownFolderPath.argtypes = [ctypes.POINTER(GUID), wintypes.DWORD, wintypes.HANDLE, ctypes.POINTER(ctypes.c_void_p)]
+    shell.SHGetKnownFolderPath.restype = ctypes.c_long
+    ole.CoTaskMemFree.argtypes = [ctypes.c_void_p]
+    ole.CoTaskMemFree.restype = None
+    pointer = ctypes.c_void_p()
+    try:
+        if shell.SHGetKnownFolderPath(ctypes.byref(folder_id), 0, None, ctypes.byref(pointer)) != 0 or not pointer.value:
+            return ""
+        return str(directory(ctypes.wstring_at(pointer)))
+    except (OSError, ValueError):
+        return ""
+    finally:
+        if pointer.value:
+            ole.CoTaskMemFree(pointer)
 
 
 def state_directory() -> Path:
@@ -48,13 +79,14 @@ def open_directory(folder: Path):
 
 
 class Application:
-    def __init__(self, data_dir: Path, emit=lambda _: None, tools=None, picker=pick_directory, runner_factory=Runner, folder_opener=open_directory):
+    def __init__(self, data_dir: Path, emit=lambda _: None, tools=None, picker=pick_directory, runner_factory=Runner, folder_opener=open_directory, music_folder=None):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.state_path = self.data_dir / "state.json"
         self.emit = emit
         self.tools = tools or Tools()
         self.picker, self.runner_factory, self.folder_opener = picker, runner_factory, folder_opener
+        self.music_folder = music_folder or known_music_directory
         self.lock = threading.RLock()
         self.settings = dict(DEFAULT_SETTINGS)
         self.jobs = []
@@ -76,16 +108,25 @@ class Application:
                 raise ValueError()
             settings = raw.get("settings", {})
             if isinstance(settings, dict):
-                for key, default in DEFAULT_SETTINGS.items():
-                    value = settings.get(key, default)
-                    if type(value) is type(default):
-                        self.settings[key] = value[:1024] if isinstance(value, str) else value
-                if self.settings["folderMode"] not in {"ask", "last", "default"}:
-                    self.settings["folderMode"] = "ask"
+                # Validate each field independently so a damaged preference never
+                # discards a previously selected destination or valid history.
+                for key in ("defaultFolder", "lastFolder"):
+                    value = settings.get(key)
+                    if isinstance(value, str) and len(value) <= 1024 and "\x00" not in value:
+                        self.settings[key] = value
+                for key in ("openFolder", "authorizedDownloads"):
+                    if type(settings.get(key)) is bool:
+                        self.settings[key] = settings[key]
+                if settings.get("defaultFormat") in ("mp3", "mp4"):
+                    self.settings["defaultFormat"] = settings["defaultFormat"]
+                for key, allowed in (("mp3Quality", (128, 192, 320)), ("mp4Quality", (360, 720, 1080))):
+                    value = settings.get(key)
+                    if type(value) is int and value in allowed:
+                        self.settings[key] = value
             jobs = raw.get("jobs", [])
             if isinstance(jobs, list):
                 for job in jobs[-100:]:
-                    if not isinstance(job, dict) or not isinstance(job.get("id"), str) or job.get("status") not in ACTIVE | TERMINAL:
+                    if not isinstance(job, dict) or not isinstance(job.get("id"), str) or not isinstance(job.get("status"), str) or job["status"] not in ACTIVE | TERMINAL:
                         continue
                     # Do not resume media operations automatically after interruption.
                     if job["status"] in ACTIVE:
@@ -99,6 +140,17 @@ class Application:
                 try:
                     self.state_path.replace(self.data_dir / "state-corrompido.json")
                 except OSError:
+                    pass
+        # A configured but missing destination remains selected and produces a
+        # clear error on download. Never silently reroute that user's files.
+        if not self.settings["defaultFolder"]:
+            if self.settings["lastFolder"]:
+                self.settings["defaultFolder"] = self.settings["lastFolder"]
+            else:
+                try:
+                    initial = self.music_folder()
+                    self.settings["defaultFolder"] = str(directory(initial)) if initial else ""
+                except (OSError, ValueError):
                     pass
         self._save()
 
@@ -118,7 +170,7 @@ class Application:
     def snapshot(self):
         with self.lock:
             jobs = [{key: value for key, value in job.items() if not key.startswith("_")} for job in self.jobs]
-            return copy.deepcopy({"settings": self.settings, "jobs": jobs, "tools": self.tools.snapshot()})
+            return copy.deepcopy({"version": VERSION, "protocolVersion": PROTOCOL_VERSION, "capabilities": CAPABILITIES, "settings": self.settings, "jobs": jobs, "tools": self.tools.snapshot()})
 
     def broadcast(self, force=False):
         now = time.monotonic()
@@ -135,57 +187,35 @@ class Application:
         self.broadcast(force=terminal)
 
     def choose_folder(self):
+        """Resolve the saved destination only; downloads never invoke a picker."""
         with self.lock:
-            mode = self.settings["folderMode"]
-            previous = self.settings["lastFolder"]
-            fixed = self.settings["defaultFolder"]
-        selected = previous if mode == "last" else fixed if mode == "default" else ""
-        if selected:
             try:
-                return directory(selected)
+                return directory(self.settings["defaultFolder"])
             except (ValueError, OSError):
-                pass  # Removed/removable folder: ask again instead of choosing silently.
-        chosen = self.picker(previous or fixed)
-        if not chosen:
-            return None
-        selected = directory(chosen)
-        with self.lock:
-            if self.closing.is_set():
-                raise ValueError("A conexão com o navegador foi encerrada.")
-            self.settings["lastFolder"] = str(selected)
-            self._save()
-        self.broadcast(force=True)
-        return selected
+                raise ValueError(FOLDER_ERROR) from None
 
     def enqueue(self, payload):
         if self.closing.is_set():
             raise ValueError("A conexão com o navegador foi encerrada.")
-        if payload.get("authorized") is not True:
-            raise ValueError("Confirme que você tem autorização para baixar este conteúdo.")
         url = validate_url(payload.get("url"))
-        fmt, quality = payload.get("format", "mp3"), payload.get("quality", 192)
-        if not isinstance(fmt, str) or fmt not in {"mp3", "m4a", "opus", "mp4"} or type(quality) is not int:
-            raise ValueError("Formato ou qualidade inválidos.")
-        if quality not in ({360, 720, 1080} if fmt == "mp4" else {128, 192, 320}):
-            raise ValueError("Qualidade inválida para o formato escolhido.")
         for field in ("title", "channel", "thumbnail"):
             if field in payload and not isinstance(payload[field], str):
                 raise ValueError("Dados do vídeo inválidos.")
         with self.lock:
-            if any(j["url"] == url and j["format"] == fmt and j["quality"] == quality and j["status"] in ACTIVE for j in self.jobs):
+            if self.closing.is_set():
+                raise ValueError("A conexão com o navegador foi encerrada.")
+            if self.settings["authorizedDownloads"] is not True:
+                raise ValueError(CONSENT_ERROR)
+            folder = self.choose_folder()
+            fmt = self.settings["defaultFormat"]
+            quality = self.settings["mp3Quality"] if fmt == "mp3" else self.settings["mp4Quality"]
+            if any(j.get("url") == url and j.get("format") == fmt and j.get("quality") == quality and j["status"] in ACTIVE for j in self.jobs):
                 raise ValueError("Este download já está na fila.")
             if sum(j["status"] in ACTIVE for j in self.jobs) >= 50:
                 raise ValueError("A fila está cheia. Aguarde os downloads atuais.")
-        self.tools.require()
-        folder = self.choose_folder()
-        if folder is None:
-            return {"cancelled": True}
-        if self.closing.is_set():
-            raise ValueError("A conexão com o navegador foi encerrada.")
-        job = {"id": str(uuid.uuid4()), "url": url, "title": payload.get("title", "Preparando sua música...")[:500], "channel": payload.get("channel", "")[:300], "thumbnail": payload.get("thumbnail", "")[:2048], "format": fmt, "quality": quality, "status": "queued", "progress": 0, "speed": None, "eta": None, "error": "", "path": "", "createdAt": datetime.now(timezone.utc).isoformat(), "_folder": str(folder)}
-        with self.lock:
-            if self.closing.is_set():
-                raise ValueError("A conexão com o navegador foi encerrada.")
+            self.tools.require()
+            job = {"id": str(uuid.uuid4()), "url": url, "title": payload.get("title", "Preparando sua música...")[:500], "channel": payload.get("channel", "")[:300], "thumbnail": payload.get("thumbnail", "")[:2048], "format": fmt, "quality": quality, "status": "queued", "progress": 0, "speed": None, "eta": None, "error": "", "path": "", "actualHeight": None, "resultNote": "", "createdAt": datetime.now(timezone.utc).isoformat(), "_folder": str(folder), "_openFolder": self.settings["openFolder"]}
+            previous_jobs = list(self.jobs)
             self.jobs.append(job)
             # Never trim active jobs; retain the latest terminal records up to 100 total.
             while len(self.jobs) > 100:
@@ -193,7 +223,11 @@ class Application:
                 if index is None:
                     break
                 self.jobs.pop(index)
-            self._save()
+            try:
+                self._save()
+            except (OSError, ValueError):
+                self.jobs = previous_jobs
+                raise
             self.work.put(job)
         self.broadcast(force=True)
         return {"jobId": job["id"]}
@@ -229,8 +263,7 @@ class Application:
                 # Once a complete verified file was published, report success even if
                 # cancellation races immediately after the atomic publication.
                 self.update_job(job, {"status": "completed", "progress": 100, "speed": None, "eta": None, "path": str(result)})
-                with self.lock:
-                    should_open = self.settings["openFolder"]
+                should_open = job.get("_openFolder", False)
                 if should_open:
                     try:
                         self.folder_opener(result.parent)
@@ -250,7 +283,7 @@ class Application:
         if not isinstance(payload, dict):
             raise ValueError("Dados da solicitação inválidos.")
         if command == "ping":
-            return {"version": VERSION}
+            return {"version": VERSION, "protocolVersion": PROTOCOL_VERSION, "capabilities": dict(CAPABILITIES)}
         if command == "get_state":
             return self.snapshot()
         if command == "download":
@@ -265,30 +298,54 @@ class Application:
             with self.lock:
                 if self.closing.is_set():
                     raise ValueError("A conexão com o navegador foi encerrada.")
+                previous_settings = dict(self.settings)
                 self.settings["lastFolder"] = str(folder)
-                self._save()
+                # The browser popup may close as the native picker takes focus.
+                # Commit here rather than relying on a later popup message.
+                self.settings["defaultFolder"] = str(folder)
+                self.settings["folderMode"] = "default"
+                try:
+                    self._save()
+                except (OSError, ValueError):
+                    self.settings = previous_settings
+                    raise
             self.broadcast(force=True)
             return {"path": str(folder)}
         if command == "settings":
-            if not set(payload).issubset({"folderMode", "defaultFolder", "openFolder"}):
+            if not set(payload).issubset({"folderMode", "defaultFolder", "openFolder", "defaultFormat", "mp3Quality", "mp4Quality", "authorizedDownloads"}):
                 raise ValueError("Configuração desconhecida.")
             changes = {}
             if "folderMode" in payload:
-                if not isinstance(payload["folderMode"], str) or payload["folderMode"] not in {"ask", "last", "default"}:
-                    raise ValueError("Modo de pasta inválido.")
-                changes["folderMode"] = payload["folderMode"]
-            if "openFolder" in payload:
-                if type(payload["openFolder"]) is not bool:
-                    raise ValueError("Preferência de abertura inválida.")
-                changes["openFolder"] = payload["openFolder"]
+                if payload["folderMode"] != "default":
+                    raise ValueError("A pasta é configurada somente no popup da extensão.")
+            for key in ("openFolder", "authorizedDownloads"):
+                if key in payload:
+                    if type(payload[key]) is not bool:
+                        raise ValueError("Preferência inválida: " + key + ".")
+                    changes[key] = payload[key]
+            if "defaultFormat" in payload:
+                if payload["defaultFormat"] not in ("mp3", "mp4"):
+                    raise ValueError("Escolha MP3 ou MP4.")
+                changes["defaultFormat"] = payload["defaultFormat"]
+            for key, allowed in (("mp3Quality", (128, 192, 320)), ("mp4Quality", (360, 720, 1080))):
+                if key in payload:
+                    if type(payload[key]) is not int or payload[key] not in allowed:
+                        raise ValueError("Qualidade inválida: " + key + ".")
+                    changes[key] = payload[key]
             if "defaultFolder" in payload:
-                changes["defaultFolder"] = str(directory(payload["defaultFolder"])) if payload["defaultFolder"] else ""
+                try:
+                    changes["defaultFolder"] = str(directory(payload["defaultFolder"]))
+                except (ValueError, OSError):
+                    raise ValueError(FOLDER_ERROR) from None
             with self.lock:
                 final = dict(self.settings, **changes)
-                if final["folderMode"] == "default" and not final["defaultFolder"]:
-                    raise ValueError("Escolha uma pasta padrão antes de ativar esta opção.")
+                previous_settings = self.settings
                 self.settings = final
-                self._save()
+                try:
+                    self._save()
+                except (OSError, ValueError):
+                    self.settings = previous_settings
+                    raise
             self.broadcast(force=True)
             return dict(self.settings)
         if command == "open_folder":
@@ -306,8 +363,13 @@ class Application:
             return {"opened": True}
         if command == "clear_history":
             with self.lock:
+                previous_jobs = self.jobs
                 self.jobs = [j for j in self.jobs if j["status"] not in TERMINAL]
-                self._save()
+                try:
+                    self._save()
+                except (OSError, ValueError):
+                    self.jobs = previous_jobs
+                    raise
             self.broadcast(force=True)
             return {"cleared": True}
         raise ValueError("Comando desconhecido.")

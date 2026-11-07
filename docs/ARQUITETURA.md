@@ -21,15 +21,15 @@ sequenceDiagram
     participant W as Service worker
     participant H as Aplicativo auxiliar
     participant P as yt-dlp / FFmpeg
-    U->>C: Abrir opções do vídeo
-    U->>C: Confirmar autorização e baixar
-    C->>W: download (URL e formato)
+    U->>W: Configurar pasta, formato, qualidade e autorização uma vez no popup
+    W->>H: Salvar preferências (diálogo só em Alterar pasta)
+    U->>C: Clicar uma vez em Baixar MP3/MP4
+    C->>W: download (URL e metadados)
     W->>W: Validar origem e comando
     W->>H: JSON por Native Messaging
-    H->>H: Validar URL e formato
-    H->>U: Diálogo nativo de pasta
-    U->>H: Selecionar pasta
-    H->>H: Persistir pedido na fila
+    W->>H: Conferir capacidade do protocolo 2 na conexão atual
+    H->>H: Validar URL, autorização salva e pasta
+    H->>H: Capturar preferências e persistir pedido na fila
     H->>P: Executar com lista de argumentos
     P-->>H: Progresso real e resultado
     H-->>W: Eventos de estado
@@ -40,9 +40,10 @@ sequenceDiagram
 
 - Sem `externally_connectable`, `eval`, script remoto ou execução de comandos recebidos como texto.
 - URLs são normalizadas para vídeos individuais do YouTube. URLs de outros sites, credenciais na URL, playlists como unidade de download e entradas locais não são aceitas pelo protocolo de produção.
-- A página não envia caminhos de arquivos. A seleção ocorre no auxiliar e os comandos de preferências ficam restritos às páginas da própria extensão.
+- A página não envia caminhos de arquivos, formato, qualidade ou autorização. A seleção de pasta ocorre somente em ação explícita de configuração no auxiliar; comandos de preferência ficam restritos às páginas da extensão.
+- O aplicativo é a fonte de preferências. O cache local completo é bloqueado para content scripts; atualizações de formato e progresso enviadas à página omitem caminhos e pedidos de outros documentos.
 - O host usa argumentos separados e `shell=False`. yt-dlp ignora configurações externas; não recebe cookies ou credenciais.
-- Os binários de processamento vêm de fontes identificadas no lock de dependências do build e são conferidos antes do empacotamento.
+- As ferramentas vêm de fontes oficiais identificadas no lock. O instalador baixa e verifica hashes automaticamente, sem redistribuir esses binários no Setup. O build também verifica ferramentas temporárias antes de validar o host.
 - stdout é reservado ao protocolo Native Messaging; diagnósticos usam stderr. No Windows, stdin e stdout operam em modo binário.
 - As preferências e o histórico ficam apenas no computador. Consultas à plataforma e aos seus servidores de mídia são necessárias ao download; não há servidor próprio de coleta ou conversão.
 
@@ -50,4 +51,4 @@ sequenceDiagram
 
 O [yt-dlp](https://github.com/yt-dlp/yt-dlp) faz extração e download. FFmpeg/FFprobe convertem, mesclam e inspecionam os arquivos. Distribuições oficiais de yt-dlp incluem os componentes EJS; o [runtime JavaScript recomendado](https://github.com/yt-dlp/yt-dlp/wiki/EJS) é preparado junto às demais ferramentas. O projeto não ativa obtenção dinâmica de componentes externos.
 
-O host Python é empacotado no Windows. O [PyInstaller não é um compilador cruzado](https://pyinstaller.org/en/stable/): executar seu build no Linux não produz um aplicativo Windows. Por isso são fornecidos o build Windows e o workflow para gerar o executável, com a ausência do binário explicitada nesta entrega.
+O host Python é empacotado no Windows. O [PyInstaller não é um compilador cruzado](https://pyinstaller.org/en/stable/): o ambiente Linux executa os testes locais e o workflow GitHub Actions executa a compilação Windows. O resultado efetivo da compilação e dos testes do instalador está em [TESTES.md](TESTES.md).
